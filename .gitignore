@@ -149,3 +149,4 @@ nginx/certs/
 *.key
 *.crt
 .env
+*.env
