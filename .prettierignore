@@ -1,0 +1,11 @@
+node_modules
+dist
+build
+.env
+package-lock.json
+**/*.min.js
+**/*.min.css
+nginx/certs
+*.crt
+*.key
+*.ttf

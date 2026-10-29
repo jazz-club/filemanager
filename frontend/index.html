@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>PinkBox ❤︎</title>
+    <script>
+      fetch("/api/auth/me", { credentials: "include" })
+        .then(function (r) {
+          if (r.ok) {
+            window.location.replace("/vault");
+          } else {
+            window.location.replace("/login");
+          }
+        })
+        .catch(function () {
+          window.location.replace("/login");
+        });
+    </script>
+  </head>
+  <body>
+    <p>Loading PinkBox ❤︎...</p>
+  </body>
+</html>

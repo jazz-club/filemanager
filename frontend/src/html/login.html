@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>PinkBox ❤︎ | Log In</title>
+    <link rel="stylesheet" href="/src/css/bootstrap.min.css" />
+    <link rel="stylesheet" href="/src/css/style.css" />
+  </head>
+  <body>
+    <div class="container py-5">
+      <div class="row justify-content-center">
+        <div class="col-12 col-sm-9 col-md-6 col-lg-5 col-xl-4">
+          <div class="text-center mb-4">
+            <h1 class="h2 fw-bold">PinkBox ❤︎</h1>
+            <p class="text-muted small">like a data blackbox but :3</p>
+          </div>
+
+          <div id="msg" class="alert d-none" role="alert"></div>
+
+          <div class="card shadow-sm border-0">
+            <div class="card-body p-4">
+              <div class="btn-group w-100 mb-4" role="group">
+                <button type="button" id="tab-login" class="btn btn-primary active">Log In</button>
+                <button type="button" id="tab-register" class="btn btn-secondary">
+                  Create Account
+                </button>
+              </div>
+
+              <h2 id="form-title" class="h5 fw-bold mb-3">Log In</h2>
+              <form id="auth-form">
+                <div class="mb-3">
+                  <label
+                    for="user-input"
+                    class="form-label small text-muted text-uppercase fw-semibold"
+                    >Username</label
+                  >
+                  <input
+                    type="text"
+                    class="form-control"
+                    id="user-input"
+                    placeholder="grungler"
+                    required
+                    autocomplete="username"
+                  />
+                </div>
+                <div class="mb-3">
+                  <label
+                    for="pass-input"
+                    class="form-label small text-muted text-uppercase fw-semibold"
+                    >Password</label
+                  >
+                  <input
+                    type="password"
+                    class="form-control"
+                    id="pass-input"
+                    placeholder="••••••••"
+                    required
+                    autocomplete="current-password"
+                  />
+                  <div id="help-text" class="form-text text-muted d-none">
+                    Password must be at least 8 characters.
+                  </div>
+                </div>
+                <button type="submit" id="submit-btn" class="btn btn-primary w-100 py-2 mt-2">
+                  Log In
+                </button>
+              </form>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script src="/src/js/bootstrap.bundle.min.js"></script>
+    <script src="/src/js/common.js"></script>
+    <script src="/src/js/login.js"></script>
+  </body>
+</html>
