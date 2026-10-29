@@ -94,7 +94,7 @@ windows
 .\nginx\generate-certs.ps1
 ```
 
-### Generate Secrets & Ports
+### Generate Secrets 
 
 ```bash
 node setup.js
