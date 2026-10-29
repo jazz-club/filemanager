@@ -84,14 +84,15 @@ Node.js 18+
 
 linux
 
-````bash
-     chmod +x nginx/generate-certs.sh
-     ./nginx/generate-certs.sh
-     ```
+```bash
+chmod +x nginx/generate-certs.sh
+./nginx/generate-certs.sh
+```
+
 windows
 ```powershell
-     .\nginx\generate-certs.ps1
-     ```
+.\nginx\generate-certs.ps1
+```
 
 ### Generate Secrets & Ports
 
