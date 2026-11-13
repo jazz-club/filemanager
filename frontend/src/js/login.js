@@ -5,6 +5,21 @@ api("/auth/me").then(function (r) {
 });
 
 var mode = "login";
+var allowRegistration = true;
+
+api("/auth/registration-status")
+  .then(function (r) {
+    return r.json();
+  })
+  .then(function (d) {
+    allowRegistration = !!d.allowRegistration;
+    if (!allowRegistration && mode === "register") {
+      setMode("register");
+    }
+  })
+  .catch(function (e) {
+    console.error("Failed to fetch status.", e);
+  });
 
 var btnLoginTab = document.getElementById("tab-login");
 var btnRegisterTab = document.getElementById("tab-register");
@@ -30,20 +45,41 @@ function setMode(newMode) {
     btnRegisterTab.className = "btn btn-secondary";
     formTitle.textContent = "Log In";
     submitBtn.textContent = "Log In";
+    submitBtn.disabled = false;
+    userInput.disabled = false;
+    passInput.disabled = false;
     passInput.removeAttribute("minlength");
     helpText.className = "form-text text-muted d-none";
   } else {
     btnRegisterTab.className = "btn btn-primary active";
     btnLoginTab.className = "btn btn-secondary";
     formTitle.textContent = "Create Account";
-    submitBtn.textContent = "Create Account";
-    passInput.setAttribute("minlength", "8");
-    helpText.className = "form-text text-muted";
+
+    if (!allowRegistration) {
+      submitBtn.textContent = "Registration Disabled";
+      submitBtn.disabled = true;
+      userInput.disabled = true;
+      passInput.disabled = true;
+      helpText.className = "form-text text-muted d-none";
+      showMsg("Account creation is currently disabled.", "error");
+    } else {
+      submitBtn.textContent = "Create Account";
+      submitBtn.disabled = false;
+      userInput.disabled = false;
+      passInput.disabled = false;
+      passInput.setAttribute("minlength", "8");
+      helpText.className = "form-text text-muted";
+    }
   }
 }
 
 authForm.onsubmit = function (e) {
   e.preventDefault();
+  if (mode === "register" && !allowRegistration) {
+    showMsg("Account creation is currently disabled.", "error");
+    return;
+  }
+
   var endpoint = mode === "login" ? "/auth/login" : "/auth/register";
   var payload = {
     username: userInput.value.trim(),

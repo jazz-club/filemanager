@@ -21,7 +21,7 @@ function encrypt(plaintext) {
   const encrypted = Buffer.concat([cipher.update(plaintext), cipher.final()]);
   const tag = cipher.getAuthTag();
   const ciphertext = Buffer.concat([iv, tag, encrypted]);
-  return { ciphertext, nonce: iv.toString("hex") };
+  return { ciphertext };
 }
 
 function decrypt(blob) {

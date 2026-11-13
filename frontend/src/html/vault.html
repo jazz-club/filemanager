@@ -5,96 +5,420 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>PinkBox ❤︎ | Files</title>
     <link rel="stylesheet" href="/src/css/bootstrap.min.css" />
-    <link rel="stylesheet" href="/src/css/style.css" />
+    <link rel="stylesheet" href="/src/css/style.css?v=9" />
   </head>
   <body>
-    <nav class="navbar navbar-expand navbar-light bg-white mb-4 shadow-sm">
+    
+    <nav class="navbar navbar-expand navbar-light bg-white mb-3 shadow-sm">
       <div class="container-lg">
         <a class="navbar-brand fw-bold d-flex align-items-center gap-2" href="/vault">
           <span>PinkBox ❤︎</span>
         </a>
-        <div class="d-flex align-items-center gap-3">
-          <span class="navbar-text small">Logged in as <b id="whoami">...</b></span>
-          <button id="logout-btn" class="btn btn-sm btn-outline-dark">Logout</button>
+        <div class="d-flex align-items-center gap-2">
+          <span class="navbar-text small d-none d-sm-inline"
+            >Logged in as <b id="whoami">...</b></span
+          >
+          
+          <button
+            class="btn btn-outline-dark d-flex align-items-center justify-content-center p-2"
+            type="button"
+            data-bs-toggle="offcanvas"
+            data-bs-target="#settingsOffcanvas"
+            aria-controls="settingsOffcanvas"
+            title="Menu & Settings"
+          >
+            <span style="font-size: 1.2rem; line-height: 1">☰</span>
+          </button>
         </div>
       </div>
     </nav>
 
-    <main class="container-lg mb-5">
-      <div id="msg" class="alert d-none mb-3" role="alert"></div>
-
-      <div class="card shadow-sm border-0 mb-4">
-        <div class="card-body py-3">
-          <form id="upload-form" class="row g-2 align-items-center" novalidate>
-            <div class="col-12 col-md-auto">
-              <h2 class="h6 mb-0 fw-bold">Upload File</h2>
+    
+    <div
+      class="offcanvas offcanvas-end"
+      tabindex="-1"
+      id="settingsOffcanvas"
+      aria-labelledby="settingsOffcanvasLabel"
+    >
+      <div class="offcanvas-header border-bottom">
+        <h5 class="offcanvas-title fw-bold" id="settingsOffcanvasLabel">PinkBox Menu</h5>
+        <button
+          type="button"
+          class="btn-close"
+          data-bs-dismiss="offcanvas"
+          aria-label="Close"
+        ></button>
+      </div>
+      <div class="offcanvas-body d-flex flex-column justify-content-between p-3">
+        <div>
+          
+          <div class="card shadow-sm border-0 mb-4 p-3 bg-light">
+            <div class="d-flex justify-content-between align-items-center mb-1">
+              <span class="small fw-bold">Vault Storage Usage</span>
+              <span class="small text-muted" id="storage-usage-text">Calculating...</span>
             </div>
-            <div class="col">
-              <input type="file" id="file-input" class="form-control" />
-            </div>
-            <div class="col-12 col-md-auto">
-              <button type="submit" id="upload-btn" class="btn btn-primary w-100">
-                Feed File To Server
-              </button>
-            </div>
-          </form>
-          <div id="upload-progress-wrap" class="mt-3 d-none">
-            <div class="d-flex justify-content-between mb-1 small fw-semibold">
-              <span id="upload-progress-label">mmm yummy file...</span>
-              <span id="upload-progress-pct">0%</span>
-            </div>
-            <div class="progress">
+            <div class="progress mb-2" style="height: 10px" id="storage-bar">
               <div
-                id="upload-progress-bar"
-                class="progress-bar progress-bar-striped progress-bar-animated"
+                class="progress-bar bg-primary"
                 role="progressbar"
+                id="storage-bar-img"
                 style="width: 0%"
-                aria-valuenow="0"
-                aria-valuemin="0"
-                aria-valuemax="100"
+                title="Images"
+              ></div>
+              <div
+                class="progress-bar bg-success"
+                role="progressbar"
+                id="storage-bar-video"
+                style="width: 0%"
+                title="Videos"
+              ></div>
+              <div
+                class="progress-bar bg-info"
+                role="progressbar"
+                id="storage-bar-audio"
+                style="width: 0%"
+                title="Audio"
+              ></div>
+              <div
+                class="progress-bar bg-warning"
+                role="progressbar"
+                id="storage-bar-doc"
+                style="width: 0%"
+                title="Documents"
+              ></div>
+              <div
+                class="progress-bar bg-secondary"
+                role="progressbar"
+                id="storage-bar-other"
+                style="width: 0%"
+                title="Other"
               ></div>
             </div>
+            <div class="d-flex flex-column gap-1 small text-muted">
+              <div class="d-flex justify-content-between">
+                <span><span class="badge bg-primary me-1">&nbsp;</span>Images:</span>
+                <b id="size-img">0 B</b>
+              </div>
+              <div class="d-flex justify-content-between">
+                <span><span class="badge bg-success me-1">&nbsp;</span>Videos:</span>
+                <b id="size-video">0 B</b>
+              </div>
+              <div class="d-flex justify-content-between">
+                <span><span class="badge bg-info me-1">&nbsp;</span>Audio:</span>
+                <b id="size-audio">0 B</b>
+              </div>
+              <div class="d-flex justify-content-between">
+                <span><span class="badge bg-warning me-1">&nbsp;</span>Documents:</span>
+                <b id="size-doc">0 B</b>
+              </div>
+              <div class="d-flex justify-content-between">
+                <span><span class="badge bg-secondary me-1">&nbsp;</span>Other:</span>
+                <b id="size-other">0 B</b>
+              </div>
+            </div>
+          </div>
+
+          
+          <div class="d-grid gap-2 mb-4">
+            <button
+              id="export-all-btn"
+              class="btn btn-white text-start d-flex align-items-center gap-2"
+            >
+              <span>Export Vault as .zip</span>
+            </button>
+            <button
+              id="open-change-pw-btn"
+              class="btn btn-white text-start d-flex align-items-center gap-2"
+            >
+              <span>Change Password</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="border-top pt-3 d-grid gap-2">
+          <button
+            id="logout-btn"
+            class="btn btn-white d-flex align-items-center justify-content-center gap-2"
+          >
+            <span>Logout</span>
+          </button>
+          <button
+            id="open-delete-account-btn"
+            class="btn btn-outline-danger d-flex align-items-center justify-content-center gap-2"
+          >
+            <span>Delete Account</span>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    
+    <main class="container-lg mb-5 pb-5" id="main-dropzone">
+      <div id="msg" class="alert d-none mb-3" role="alert"></div>
+
+      
+      <div id="drop-overlay" class="drop-overlay d-none">
+        <div class="drop-overlay-box">
+          <h4 class="fw-bold mt-2 mb-0">Drop files anywhere</h4>
+          <p class="small text-muted mb-0">Up to 5GB per file will be encrypted on arrival</p>
+        </div>
+      </div>
+
+      
+      <div class="card shadow-sm border-0 mb-4">
+        <div class="card-body py-3 px-3">
+          
+          <div
+            class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3 pb-2 border-bottom"
+          >
+            <div class="d-flex flex-wrap align-items-center gap-1" id="breadcrumb-list">
+              <button type="button" class="btn btn-sm btn-white fw-bold font-monospace">
+                /root
+              </button>
+            </div>
+            <div class="d-flex gap-2 align-items-center">
+              <button
+                id="download-folder-btn"
+                class="btn btn-sm btn-white d-none"
+                title="Downloads as .zip"
+              >
+                Download Folder
+              </button>
+              <button id="refresh-btn" class="btn btn-sm btn-white">Refresh</button>
+            </div>
+          </div>
+
+          
+          <div class="row g-2 align-items-center">
+            <div class="col-12 col-md-auto">
+              <h2 class="h6 mb-0 fw-bold">Upload</h2>
+            </div>
+            <div class="col">
+              <input type="file" id="file-input" class="form-control" multiple />
+            </div>
+            <div class="col-12 col-md-auto d-flex gap-2">
+              <button type="button" id="start-upload-btn" class="btn btn-primary">
+                Feed Files To Server
+              </button>
+              <button type="button" id="new-folder-btn" class="btn btn-custom-folder">
+                + New Folder
+              </button>
+            </div>
           </div>
         </div>
       </div>
 
-      <div class="d-flex justify-content-between align-items-center mb-2">
-        <h2 class="h5 mb-0 fw-bold">
-          Stored Files <span id="file-count" class="badge bg-secondary ms-1">0</span>
-        </h2>
-        <button id="refresh-btn" class="btn btn-sm btn-secondary">Refresh List</button>
-      </div>
-
-      <div class="card shadow-sm border-0 mb-4 overflow-hidden">
-        <div class="accordion" id="filesAccordion">
-          <div id="file-list-empty" class="text-center text-muted py-4 d-none">
-            No files uploaded to user account
-          </div>
+      
+      <div class="row g-2 mb-3 align-items-center">
+        <div class="col-12 col-md-4">
+          <input
+            type="text"
+            id="search-input"
+            class="form-control form-control-sm"
+            placeholder="Search current directory…"
+          />
+        </div>
+        <div class="col-6 col-md-4">
+          <select id="type-filter" class="form-select form-select-sm">
+            <option value="all">All File Types</option>
+            <option value="image">Images</option>
+            <option value="video">Videos</option>
+            <option value="audio">Audio</option>
+            <option value="document">Documents & Code</option>
+            <option value="archive">Archives (ZIP, TAR...)</option>
+          </select>
+        </div>
+        <div class="col-6 col-md-4">
+          <select id="sort-select" class="form-select form-select-sm">
+            <option value="date-desc">Newest First</option>
+            <option value="date-asc">Oldest First</option>
+            <option value="name-asc">Name (a-z)</option>
+            <option value="name-desc">Name (z-a)</option>
+            <option value="size-desc">Largest First</option>
+            <option value="size-asc">Smallest First</option>
+          </select>
         </div>
       </div>
 
+      
       <div
-        class="modal fade"
-        id="deleteModal"
-        tabindex="-1"
-        aria-labelledby="deleteModalLabel"
-        aria-hidden="true"
+        id="batch-action-bar"
+        class="alert border-2 border-dark bg-white text-dark shadow-sm d-none d-flex flex-wrap justify-content-between align-items-center py-2 px-3 mb-3 animated-bar"
       >
+        <div class="d-flex align-items-center gap-2">
+          <span class="fw-bold"><span id="batch-count">0</span> items selected</span>
+          <div class="dropdown d-inline-block">
+            <button
+              class="btn btn-sm btn-white dropdown-toggle"
+              type="button"
+              id="batch-select-dropdown"
+              data-bs-toggle="dropdown"
+              aria-expanded="false"
+            >
+              Select
+            </button>
+            <ul class="dropdown-menu shadow-sm border-dark" aria-labelledby="batch-select-dropdown">
+              <li><button class="dropdown-item py-1" type="button" id="batch-select-all-btn">Select All Files</button></li>
+              <li><button class="dropdown-item py-1" type="button" id="batch-select-all-folders-btn">Select All Folders</button></li>
+              <li><hr class="dropdown-divider my-1" /></li>
+              <li><h6 class="dropdown-header small text-muted text-uppercase mb-0 py-1">Select By Type</h6></li>
+              <li><button class="dropdown-item py-1" type="button" data-select-type="audio">All Audio Files</button></li>
+              <li><button class="dropdown-item py-1" type="button" data-select-type="image">All Images</button></li>
+              <li><button class="dropdown-item py-1" type="button" data-select-type="video">All Videos</button></li>
+              <li><button class="dropdown-item py-1" type="button" data-select-type="document">All Documents</button></li>
+              <li><button class="dropdown-item py-1" type="button" data-select-type="archive">All Archives</button></li>
+            </ul>
+          </div>
+        </div>
+        <div class="d-flex gap-2 flex-wrap">
+          <button id="batch-download-btn" class="btn btn-sm btn-white">Download as .zip</button>
+          <button id="batch-move-btn" class="btn btn-sm btn-white">Move</button>
+          <button id="batch-delete-btn" class="btn btn-sm btn-danger">Delete</button>
+          <button id="batch-cancel-btn" class="btn btn-sm btn-white">Deselect All</button>
+        </div>
+      </div>
+
+      
+      <div id="folders-container" class="mb-3">
+        <div class="d-flex align-items-center mb-2">
+          <h6 class="fw-bold mb-0 text-muted">Folders</h6>
+        </div>
+        <div id="folders-grid" class="row g-2"></div>
+      </div>
+
+      
+      <div class="d-flex justify-content-between align-items-center mb-2">
+        <h2 class="h6 mb-0 fw-bold text-muted">
+          Files in folder <span id="file-count" class="badge bg-secondary ms-1">0</span>
+        </h2>
+        <div class="form-check form-check-inline small">
+          <input class="form-check-input" type="checkbox" id="select-all-files" />
+          <label class="form-check-label" for="select-all-files">Select All</label>
+        </div>
+      </div>
+
+      
+      <div class="card shadow-sm border-0 mb-4 overflow-hidden">
+        <div id="file-list-empty" class="text-center text-muted py-4 d-none">
+          No files here. FEED HER!
+        </div>
+        <div class="accordion" id="filesAccordion"></div>
+      </div>
+
+      
+
+      
+      <div class="modal fade" id="newFolderModal" tabindex="-1" aria-hidden="true">
         <div class="modal-dialog modal-dialog-centered">
           <div class="modal-content">
             <div class="modal-header">
-              <h3 class="modal-title h5 fw-bold mb-0" id="deleteModalLabel">Confirm Deletion</h3>
-              <button
-                type="button"
-                class="btn-close"
-                data-bs-dismiss="modal"
-                aria-label="Close"
-              ></button>
+              <h5 class="modal-title fw-bold">Create New Folder</h5>
+              <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+              <label class="form-label small fw-bold">Folder Name</label>
+              <input
+                type="text"
+                id="new-folder-name"
+                class="form-control"
+                placeholder="e.g., Bladee, Thaiboy Digital, Ecco2k..."
+              />
+            </div>
+            <div class="modal-footer">
+              <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                Cancel
+              </button>
+              <button type="button" class="btn btn-primary" id="create-folder-confirm-btn">
+                Create
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      
+      <div class="modal fade" id="renameModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+          <div class="modal-content">
+            <div class="modal-header">
+              <h5 class="modal-title fw-bold" id="rename-modal-title">Rename</h5>
+              <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+              <label class="form-label small fw-bold">New Name</label>
+              <input type="text" id="rename-input" class="form-control" />
+            </div>
+            <div class="modal-footer">
+              <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                Cancel
+              </button>
+              <button type="button" class="btn btn-primary" id="confirm-rename-btn">Save</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      
+      <div class="modal fade" id="moveModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+          <div class="modal-content">
+            <div class="modal-header">
+              <h5 class="modal-title fw-bold">Move to Folder</h5>
+              <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+              <p class="small text-muted mb-2">Destination:</p>
+              <select id="move-dest-folder-select" class="form-select">
+                <option value="">/root</option>
+              </select>
+            </div>
+            <div class="modal-footer">
+              <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                Cancel
+              </button>
+              <button type="button" class="btn btn-primary" id="confirm-move-btn">Move</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      
+      <div class="modal fade" id="folderColorModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered modal-sm">
+          <div class="modal-content">
+            <div class="modal-header">
+              <h5 class="modal-title fw-bold">Pick Folder Colour</h5>
+              <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body text-center">
+              <p class="small text-muted mb-3">
+                Folder accent for <b id="color-folder-name">Folder</b>:
+              </p>
+              <div class="d-flex flex-wrap justify-content-center gap-2" id="folder-color-palette">
+                
+              </div>
+            </div>
+            <div class="modal-footer">
+              <button type="button" class="btn btn-sm btn-secondary" data-bs-dismiss="modal">
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      
+      <div class="modal fade" id="deleteModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+          <div class="modal-content">
+            <div class="modal-header">
+              <h3 class="modal-title h5 fw-bold mb-0">Confirm Permanent Deletion</h3>
+              <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body">
               <p class="mb-0">
-                Are you sure you want to permanently move
-                <strong id="delete-file-name">this file</strong> to the abyss?
+                Are you sure you want to permanently delete
+                <strong id="delete-file-name">this item</strong>? This cannot be undone.
               </p>
             </div>
             <div class="modal-footer">
@@ -109,40 +433,348 @@
         </div>
       </div>
 
-      <div
-        class="modal fade"
-        id="abyssModal"
-        tabindex="-1"
-        aria-labelledby="abyssModalLabel"
-        aria-hidden="true"
-      >
+      
+      <div class="modal fade" id="changePasswordModal" tabindex="-1" aria-hidden="true">
         <div class="modal-dialog modal-dialog-centered">
           <div class="modal-content">
             <div class="modal-header">
-              <h3 class="modal-title h5 fw-bold mb-0" id="abyssModalLabel">The Abyss</h3>
+              <h5 class="modal-title fw-bold">Change Password</h5>
+              <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+              <div class="mb-3">
+                <label class="form-label small fw-bold">Current Password</label>
+                <input
+                  type="password"
+                  id="pw-current"
+                  class="form-control"
+                  autocomplete="current-password"
+                />
+              </div>
+              <div class="mb-3">
+                <label class="form-label small fw-bold">New Password (min 8 chars)</label>
+                <input
+                  type="password"
+                  id="pw-new"
+                  class="form-control"
+                  autocomplete="new-password"
+                />
+              </div>
+              <div>
+                <label class="form-label small fw-bold">Confirm New Password</label>
+                <input
+                  type="password"
+                  id="pw-confirm"
+                  class="form-control"
+                  autocomplete="new-password"
+                />
+              </div>
+            </div>
+            <div class="modal-footer">
+              <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                Cancel
+              </button>
+              <button type="button" class="btn btn-primary" id="confirm-change-pw-btn">
+                Update Password
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      
+      <div class="modal fade" id="deleteAccountModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+          <div class="modal-content border-danger">
+            <div class="modal-header bg-danger text-white">
+              <h5 class="modal-title fw-bold">Delete Account</h5>
               <button
                 type="button"
-                class="btn-close"
+                class="btn-close btn-close-white"
                 data-bs-dismiss="modal"
-                aria-label="Close"
               ></button>
             </div>
             <div class="modal-body">
-              <p class="mb-0">
-                I've entered the abyss. I've bought a house in the abyss. I'm getting my post
-                forwarded to the abyss.
+              <p class="text-danger fw-bold">
+                See ya? ig
               </p>
+              <p class="small text-muted mb-3">Please enter your password to confirm:</p>
+              <input
+                type="password"
+                id="delete-account-password"
+                class="form-control"
+                placeholder="Your password"
+              />
             </div>
             <div class="modal-footer">
-              <button type="button" class="btn btn-primary" data-bs-dismiss="modal">OK</button>
+              <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                Cancel
+              </button>
+              <button type="button" class="btn btn-danger" id="confirm-delete-account-btn">
+                Permanently Delete Account
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      
+      <div class="modal fade" id="videoModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-lg modal-dialog-centered">
+          <div class="modal-content bg-dark text-white">
+            <div class="modal-header border-secondary position-relative">
+              <div class="d-flex align-items-center gap-2 text-truncate" style="max-width: 80%">
+                <h5 class="modal-title text-truncate mb-0" id="video-modal-title">Video Player</h5>
+                <span id="video-counter-text" class="small text-muted">1 / 1</span>
+              </div>
+              <button
+                type="button"
+                class="btn-close-custom"
+                data-bs-dismiss="modal"
+                id="video-modal-close"
+                aria-label="Close"
+              >×</button>
+            </div>
+            <div class="modal-body p-0 text-center">
+              <video
+                id="video-player-el"
+                controls
+                style="max-height: 70vh; width: 100%; outline: none"
+                preload="metadata"
+              ></video>
+            </div>
+            <div class="modal-footer border-secondary justify-content-between py-2">
+              <button type="button" class="btn btn-sm btn-outline-light" id="video-prev-btn">
+                &lt; Prev Video
+              </button>
+              <div class="small text-muted d-none d-md-inline">Scrolls through only files with same type</div>
+              <button type="button" class="btn btn-sm btn-outline-light" id="video-next-btn">
+                Next Video &gt;
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      
+      <div class="modal fade" id="imageModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-xl modal-dialog-centered">
+          <div class="modal-content bg-dark text-white">
+            <div class="modal-header border-secondary position-relative">
+              <h5 class="modal-title text-truncate" id="image-modal-title">Image Viewer</h5>
+              <button
+                type="button"
+                class="btn-close-custom"
+                data-bs-dismiss="modal"
+                id="image-modal-close"
+                aria-label="Close"
+              >×</button>
+            </div>
+            <div class="modal-body p-2 text-center" style="max-height: 80vh; overflow: auto">
+              <img
+                id="image-viewer-el"
+                src=""
+                alt="Preview"
+                class="img-fluid rounded"
+                style="max-height: 75vh"
+              />
+            </div>
+            <div class="modal-footer border-secondary justify-content-between">
+              <button type="button" class="btn btn-sm btn-outline-light" id="image-prev-btn">
+                Previous
+              </button>
+              <span id="image-counter-text" class="small text-muted">1 / 1</span>
+              <button type="button" class="btn btn-sm btn-outline-light" id="image-next-btn">
+                Next
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      
+      <div class="modal fade" id="docModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-xl modal-dialog-centered">
+          <div class="modal-content">
+            <div class="modal-header">
+              <h5 class="modal-title text-truncate" id="doc-modal-title">Document Preview</h5>
+              <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body p-3">
+              <div id="doc-pdf-container" class="d-none">
+                <iframe
+                  id="doc-pdf-iframe"
+                  style="width: 100%; height: 70vh; border: none"
+                ></iframe>
+              </div>
+              <pre
+                id="doc-text-container"
+                class="p-3 bg-light rounded border mb-0 d-none"
+                style="
+                  max-height: 70vh;
+                  overflow: auto;
+                  font-family: monospace;
+                  font-size: 0.85rem;
+                  white-space: pre-wrap;
+                  word-break: break-all;
+                "
+              ></pre>
             </div>
           </div>
         </div>
       </div>
     </main>
 
+    
+    <div
+      id="upload-tray"
+      class="card shadow-lg border-2 border-dark d-none position-fixed bottom-0 end-0 m-3"
+      style="width: 380px; max-width: 90vw; z-index: 1060; border-radius: 10px; background: #fff"
+    >
+      <div
+        class="card-header bg-white py-2 px-3 d-flex justify-content-between align-items-center border-bottom"
+      >
+        <span class="small fw-bold">Uploads (<span id="upload-tray-count">0</span>)</span>
+        <button type="button" class="btn-close btn-sm" id="close-upload-tray-btn"></button>
+      </div>
+      <div class="card-body p-2" id="upload-tray-items" style="max-height: 250px; overflow-y: auto">
+        
+      </div>
+    </div>
+
+    
+    <div
+      id="audio-dock-player"
+      class="card shadow-lg border-2 border-dark d-none position-fixed bottom-0 start-50 translate-middle-x mb-3"
+      style="width: 95%; max-width: 650px; z-index: 1050; border-radius: 12px; background: #fff"
+    >
+      <div class="card-body p-2 px-3">
+        
+        <audio id="audio-dock-el" preload="metadata" class="d-none"></audio>
+
+        
+        <div class="d-flex justify-content-between align-items-center mb-1">
+          <div class="d-flex align-items-center gap-2 text-truncate me-2" style="max-width: 85%">
+            <span class="small fw-bold text-truncate" id="audio-dock-title">Music Player</span>
+            <span class="badge bg-secondary" id="audio-track-counter">1 / 1</span>
+          </div>
+          <button
+            type="button"
+            class="btn-close btn-sm"
+            id="audio-dock-close"
+            title="Close Player"
+          ></button>
+        </div>
+
+        
+        <div
+          class="audio-progress-wrap my-1"
+          id="audio-progress-wrap"
+          style="
+            cursor: pointer;
+            height: 10px;
+            background: #f1f5f9;
+            border-radius: 5px;
+            border: 2px solid #000;
+            position: relative;
+          "
+        >
+          <div
+            id="audio-progress-fill"
+            style="height: 100%; width: 0%; background: #ff69b4; border-radius: 3px; position: relative;"
+          >
+            <div
+              id="audio-progress-handle"
+              style="
+                position: absolute;
+                right: -6px;
+                top: 50%;
+                transform: translateY(-50%);
+                width: 12px;
+                height: 12px;
+                background-color: #ffffff;
+                border: 2px solid #000000;
+                border-radius: 50%;
+                box-shadow: 1px 1px 0 0 #000000;
+                pointer-events: none;
+              "
+            ></div>
+          </div>
+        </div>
+        <div
+          class="d-flex justify-content-between small text-muted font-monospace"
+          style="font-size: 0.75rem"
+        >
+          <span id="audio-current-time">0:00</span>
+          <span id="audio-total-time">0:00</span>
+        </div>
+
+        
+        <div class="d-flex align-items-center justify-content-between flex-wrap gap-1 mt-1">
+          <div class="d-flex align-items-center gap-1">
+            <button
+              type="button"
+              class="btn btn-sm btn-white py-1 px-2"
+              id="audio-prev-btn"
+              title="Previous Track"
+            >
+              |&lt; Prev
+            </button>
+            <button
+              type="button"
+              class="btn btn-sm btn-white py-1 px-2"
+              id="audio-rwd-btn"
+              title="Rewind 10s"
+            >
+              -10s
+            </button>
+            <button
+              type="button"
+              class="btn btn-sm btn-primary py-1 px-3 fw-bold"
+              id="audio-play-pause-btn"
+              style="min-width: 75px"
+            >
+              Play
+            </button>
+            <button
+              type="button"
+              class="btn btn-sm btn-white py-1 px-2"
+              id="audio-fwd-btn"
+              title="Forward 10s"
+            >
+              +10s
+            </button>
+            <button
+              type="button"
+              class="btn btn-sm btn-white py-1 px-2"
+              id="audio-next-btn"
+              title="Next Track"
+            >
+              Next &gt;|
+            </button>
+          </div>
+          <div class="d-flex align-items-center gap-2 ms-auto">
+            <button type="button" class="btn btn-sm btn-white py-0 px-2" id="audio-mute-btn">
+              Mute
+            </button>
+            <input
+              type="range"
+              class="form-range"
+              id="audio-volume-slider"
+              min="0"
+              max="1"
+              step="0.05"
+              value="1"
+              style="width: 75px"
+              title="Volume"
+            />
+          </div>
+        </div>
+      </div>
+    </div>
+
     <script src="/src/js/bootstrap.bundle.min.js"></script>
-    <script src="/src/js/common.js"></script>
-    <script src="/src/js/vault.js"></script>
+    <script src="/src/js/common.js?v=6"></script>
+    <script src="/src/js/vault.js?v=8"></script>
   </body>
 </html>
