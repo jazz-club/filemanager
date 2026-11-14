@@ -22,6 +22,7 @@ var videoModal = new bootstrap.Modal(document.getElementById("videoModal"));
 var imageModal = new bootstrap.Modal(document.getElementById("imageModal"));
 var docModal = new bootstrap.Modal(document.getElementById("docModal"));
 var folderColorModal = new bootstrap.Modal(document.getElementById("folderColorModal"));
+
 var pendingAction = null;
 
 var whoamiEl = document.getElementById("whoami");
@@ -549,6 +550,7 @@ REMINDER DO NOT FUCK WITH ANIMATION STUFF
     }
   }
 
+  if (disappearingGhosts.length > 0) {
     requestAnimationFrame(function () {
       disappearingGhosts.forEach(function (g) {
         g.style.transition = "transform 0.22s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.2s ease-in";
@@ -563,6 +565,7 @@ REMINDER DO NOT FUCK WITH ANIMATION STUFF
     });
   }
 
+  var newElements = accordion.querySelectorAll("[data-item-key]:not(.item-ghost-disappearing)");
   if (prevMap.size > 0 && newElements.length > 0) {
     newElements.forEach(function (el) {
       var key = el.getAttribute("data-item-key");
@@ -576,6 +579,7 @@ REMINDER DO NOT FUCK WITH ANIMATION STUFF
           el.style.transition = "none";
         }
       } else {
+        el.style.transformOrigin = "center center";
         el.style.transform = "scale(0.25)";
         el.style.opacity = "0";
         el.style.transition = "none";
@@ -751,6 +755,7 @@ function attachShaCopyHandler(boxEl, shaText) {
 
     clearTimeout(resetTimer);
 
+    boxEl.classList.remove("sha-pop", "sha-shake");
     void boxEl.offsetWidth; 
 
     boxEl.classList.add("is-copied");
@@ -1013,6 +1018,7 @@ function renderGrid(filteredFolders, filteredFiles, query, accordion) {
     gridContainer.appendChild(col);
   });
 
+  filteredFiles.forEach(function (file) {
     var col = document.createElement("div");
     col.className = "col-6 col-sm-6 col-md-4 col-lg-3 col-xl-3 col-xxl-2 grid-item-col";
     col.setAttribute("data-item-key", "file-" + file.id);
@@ -1142,6 +1148,7 @@ function renderGrid(filteredFolders, filteredFiles, query, accordion) {
 }
 
 function renderListView(filteredFolders, filteredFiles, query, accordion) {
+  filteredFolders.forEach(function (folder) {
     var folderItem = document.createElement("div");
     folderItem.className =
       "accordion-item border-0 border-bottom folder-row-item " +
@@ -1275,6 +1282,7 @@ function renderListView(filteredFolders, filteredFiles, query, accordion) {
     accordion.appendChild(folderItem);
   });
 
+  filteredFiles.forEach(function (file) {
     var item = document.createElement("div");
     item.className =
       "accordion-item border-0 border-bottom " +
@@ -1848,6 +1856,7 @@ var FOLDER_PALETTE = [
 ];
 
 function openFolderColorModal(folder) {
+  closeAllMenus();
   document.getElementById("color-folder-name").textContent = folder.name;
   var container = document.getElementById("folder-color-palette");
   container.innerHTML = "";

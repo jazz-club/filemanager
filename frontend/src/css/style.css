@@ -1187,6 +1187,7 @@ a:not(.navbar *):not(.btn) {
   animation: shaShake 0.3s ease-in-out;
 }
 
+.alert {
   border: 2px solid #000000 !important;
   box-shadow: 3px 3px 0 0 #000000 !important;
   border-radius: 6px !important;
@@ -1246,6 +1247,7 @@ a:not(.navbar *):not(.btn) {
   transition: transform 0.05s ease !important;
 }
 
+@keyframes previewModalPop {
   0% {
     opacity: 0;
     transform: scale(0.32) translateY(-25px);

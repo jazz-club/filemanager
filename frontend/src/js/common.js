@@ -52,6 +52,7 @@ function showMsg(text, type) {
     }
   }
 
+  if (text) {
     pushNotification(text, type);
   }
 }
@@ -77,6 +78,8 @@ function pushNotification(text, type) {
     msgBox.removeChild(msgBox.lastChild);
   }
 
+  if (tray && tray.classList.contains("d-none") && dot) {
+    dot.classList.remove("d-none");
   }
 }
 
@@ -105,6 +108,7 @@ function formatDate(isoStr) {
   }
 }
 
+document.addEventListener("click", function (e) {
   var btn = e.target.closest(".toggle-pw-btn, #toggle-pass-visibility, #toggle-admin-pass-visibility");
   if (!btn) return;
   e.preventDefault();
