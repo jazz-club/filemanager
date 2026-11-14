@@ -62,11 +62,11 @@ async function recordFailedAttempt(identifier) {
 
     let lockSeconds = 0;
     if (newCount >= 15) {
-      lockSeconds = 15 * 60; 
+      lockSeconds = 15 * 60;
     } else if (newCount >= 10) {
-      lockSeconds = 5 * 60; 
+      lockSeconds = 5 * 60;
     } else if (newCount >= 5) {
-      lockSeconds = 30; 
+      lockSeconds = 30;
     }
 
     let lockedUntil = null;
@@ -109,4 +109,3 @@ module.exports = {
   recordFailedAttempt,
   clearCooldown,
 };
-

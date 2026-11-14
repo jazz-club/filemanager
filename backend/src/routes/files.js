@@ -14,7 +14,7 @@ const upload = multer({
 
 // TODO decrpyt preview buffers
 const previewCache = new Map();
-const MAX_CACHE_BYTES = 256 * 1024 * 1024; 
+const MAX_CACHE_BYTES = 256 * 1024 * 1024;
 let currentCacheBytes = 0;
 
 function invalidatePreviewCache(fileId) {
@@ -610,7 +610,7 @@ router.get("/:id/preview", requireAuth, async (req, res) => {
     const etag = `"${file.id}-${totalSize}"`;
 
     res.set({
-      "ETag": etag,
+      ETag: etag,
       "Cache-Control": "private, max-age=86400, stale-while-revalidate=3600",
       "Accept-Ranges": "bytes",
     });

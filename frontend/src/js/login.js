@@ -93,7 +93,7 @@ function startCooldown(seconds) {
       return;
     }
     submitBtn.textContent = "Cooldown (" + remaining + "s)";
-    showMsg("Too many attempts. Try again in: " + remaining + "s remaining.", "error");
+    showMsg("Too many attempts. Try again in: " + remaining + "s", "error");
     remaining--;
   }
 

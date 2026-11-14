@@ -131,8 +131,6 @@ router.patch("/settings", requireAdmin, async (req, res) => {
   }
 });
 
-
-
 router.get("/users", requireAdmin, async (req, res) => {
   try {
     const q = await pool.query(`

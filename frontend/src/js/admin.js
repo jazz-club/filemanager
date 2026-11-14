@@ -64,7 +64,7 @@ function startAdminCooldown(seconds) {
     if (adminSubmitBtn) {
       adminSubmitBtn.textContent = "Cooldown (" + remaining + "s)";
     }
-    showAdminMsg("Too many failed attempts. Try again in: " + remaining + "s remaining.", "error");
+    showAdminMsg("Too many failed attempts. Try again in: " + remaining + "s", "error");
     remaining--;
   }
 

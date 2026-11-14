@@ -155,7 +155,7 @@ router.patch("/:id/move", requireAuth, async (req, res) => {
       return res.status(400).json({ error: "Cannot move folder into itself" });
     }
 
-	  // cheeky
+    // cheeky
     if (targetParentId) {
       let cur = targetParentId;
       while (cur) {

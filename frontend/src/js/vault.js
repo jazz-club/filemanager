@@ -6,7 +6,6 @@ var selectedFileIds = new Set();
 var selectedFolderIds = new Set();
 var inspectedFile = null;
 
-
 /*
 	opsec level getelementbyid
 */
@@ -182,14 +181,17 @@ function startZipDownloadTask(url, zipName, displayTitle, fetchOptions) {
   row.className = "upload-tray-item mb-2 p-2 border border-dark rounded bg-white shadow-sm";
   row.innerHTML =
     '<div class="d-flex justify-content-between align-items-center mb-1 small">' +
-    '<span class="fw-bold text-truncate" style="max-width: 190px;" title="' + escapeHtml(displayTitle) + '">' +
-    '📦 ' + escapeHtml(displayTitle) +
-    '</span>' +
+    '<span class="fw-bold text-truncate" style="max-width: 190px;" title="' +
+    escapeHtml(displayTitle) +
+    '">' +
+    "📦 " +
+    escapeHtml(displayTitle) +
+    "</span>" +
     '<span class="text-muted zip-status font-monospace" style="font-size: 0.72rem;">Preparing...</span>' +
-    '</div>' +
+    "</div>" +
     '<div class="progress" style="height: 8px; border: 1px solid #000; border-radius: 4px; overflow: hidden; background: #f0f0f0;">' +
     '<div class="progress-bar progress-bar-striped progress-bar-animated bg-primary" role="progressbar" style="width: 15%; transition: width 0.2s ease;"></div>' +
-    '</div>';
+    "</div>";
 
   var trayItems = document.getElementById("upload-tray-items");
   if (trayItems) trayItems.prepend(row);
@@ -261,7 +263,11 @@ function startZipDownloadTask(url, zipName, displayTitle, fetchOptions) {
 
 function downloadFolderAsZip(folderId, folderName) {
   var safeName = (folderName || "folder").replace(/["\r\n/\\:]/g, "_") + ".zip";
-  startZipDownloadTask("/api/files/folder/" + folderId + "/download", safeName, "/" + (folderName || "Folder"));
+  startZipDownloadTask(
+    "/api/files/folder/" + folderId + "/download",
+    safeName,
+    "/" + (folderName || "Folder")
+  );
 }
 
 function downloadSelectionAsZip(fileIds, folderIds) {
@@ -270,7 +276,7 @@ function downloadSelectionAsZip(fileIds, folderIds) {
   startZipDownloadTask("/api/files/batch/download-zip", safeName, count + " selected items", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ fileIds: fileIds || [], folderIds: folderIds || [] })
+    body: JSON.stringify({ fileIds: fileIds || [], folderIds: folderIds || [] }),
   });
 }
 
@@ -419,7 +425,7 @@ if (typeof window !== "undefined" && "IntersectionObserver" in window) {
 
         vid.addEventListener("error", function () {
           container.innerHTML =
-            '<span class="grid-icon-large text-secondary" style="font-family: \'Segoe UI Symbol\', \'Apple Symbols\', sans-serif !important;">▶</span>';
+            "<span class=\"grid-icon-large text-secondary\" style=\"font-family: 'Segoe UI Symbol', 'Apple Symbols', sans-serif !important;\">▶</span>";
         });
 
         container.innerHTML = "";
@@ -492,8 +498,7 @@ function renderList() {
     return 0;
   });
 
-	
-/*
+  /*
 REMINDER DO NOT FUCK WITH ANIMATION STUFF
 */
   var totalItems = filteredFolders.length + filteredFiles.length;
@@ -504,8 +509,12 @@ REMINDER DO NOT FUCK WITH ANIMATION STUFF
   var prevMap = new Map();
   var prevElements = accordion.querySelectorAll("[data-item-key]:not(.item-ghost-disappearing)");
   var newKeys = new Set();
-  filteredFolders.forEach(function (f) { newKeys.add("folder-" + f.id); });
-  filteredFiles.forEach(function (f) { newKeys.add("file-" + f.id); });
+  filteredFolders.forEach(function (f) {
+    newKeys.add("folder-" + f.id);
+  });
+  filteredFiles.forEach(function (f) {
+    newKeys.add("file-" + f.id);
+  });
 
   var disappearingGhosts = [];
   var accordionRect = accordion.getBoundingClientRect();
@@ -520,8 +529,8 @@ REMINDER DO NOT FUCK WITH ANIMATION STUFF
       var ghost = el.cloneNode(true);
       ghost.classList.add("item-ghost-disappearing");
       ghost.style.position = "absolute";
-      ghost.style.left = (rect.left - accordionRect.left) + "px";
-      ghost.style.top = (rect.top - accordionRect.top) + "px";
+      ghost.style.left = rect.left - accordionRect.left + "px";
+      ghost.style.top = rect.top - accordionRect.top + "px";
       ghost.style.width = rect.width + "px";
       ghost.style.height = rect.height + "px";
       ghost.style.margin = "0";
@@ -589,7 +598,8 @@ REMINDER DO NOT FUCK WITH ANIMATION STUFF
     requestAnimationFrame(function () {
       requestAnimationFrame(function () {
         newElements.forEach(function (el) {
-          el.style.transition = "transform 0.28s cubic-bezier(0.34, 1.25, 0.64, 1), opacity 0.22s ease-out";
+          el.style.transition =
+            "transform 0.28s cubic-bezier(0.34, 1.25, 0.64, 1), opacity 0.22s ease-out";
           el.style.transform = "";
           el.style.opacity = "";
           var cleanup = function () {
@@ -652,13 +662,44 @@ function openContextMenu(e, type, item) {
 
   if (type === "folder") {
     var opts = [
-      { text: "Open Folder", action: function () { navigateToFolder(item.id, item.name); } },
-      { text: "Rename", action: function () { openRenameModal("folder", item.id, item.name); } },
-      { text: "Change Folder Colour", action: function () { openFolderColorModal(item); } },
-      { text: "Move", action: function () { openMoveModal("folder", item.id, item.name); } },
-      { text: "Download folder", action: function () { downloadFolderAsZip(item.id, item.name); } },
+      {
+        text: "Open Folder",
+        action: function () {
+          navigateToFolder(item.id, item.name);
+        },
+      },
+      {
+        text: "Rename",
+        action: function () {
+          openRenameModal("folder", item.id, item.name);
+        },
+      },
+      {
+        text: "Change Folder Colour",
+        action: function () {
+          openFolderColorModal(item);
+        },
+      },
+      {
+        text: "Move",
+        action: function () {
+          openMoveModal("folder", item.id, item.name);
+        },
+      },
+      {
+        text: "Download folder",
+        action: function () {
+          downloadFolderAsZip(item.id, item.name);
+        },
+      },
       { divider: true },
-      { text: "Delete", danger: true, action: function () { openDeleteModal("folder", item.id, item.name); } },
+      {
+        text: "Delete",
+        danger: true,
+        action: function () {
+          openDeleteModal("folder", item.id, item.name);
+        },
+      },
     ];
     opts.forEach(function (opt) {
       if (opt.divider) {
@@ -679,15 +720,46 @@ function openContextMenu(e, type, item) {
   } else if (type === "file") {
     var opts = [];
     if (currentViewMode !== "grid") {
-      opts.push({ text: "Preview", action: function () { openPreview(item, allLoadedFiles); } });
-      opts.push({ text: "Download", action: function () { window.location.href = "/api/files/" + item.id + "/download"; } });
-      opts.push({ text: "File Details ⓘ", action: function () { showFileDetails(item, allLoadedFiles); } });
+      opts.push({
+        text: "Preview",
+        action: function () {
+          openPreview(item, allLoadedFiles);
+        },
+      });
+      opts.push({
+        text: "Download",
+        action: function () {
+          window.location.href = "/api/files/" + item.id + "/download";
+        },
+      });
+      opts.push({
+        text: "File Details ⓘ",
+        action: function () {
+          showFileDetails(item, allLoadedFiles);
+        },
+      });
       opts.push({ divider: true });
     }
-    opts.push({ text: "Rename", action: function () { openRenameModal("file", item.id, item.original_name); } });
-    opts.push({ text: "Move", action: function () { openMoveModal("file", item.id, item.original_name); } });
+    opts.push({
+      text: "Rename",
+      action: function () {
+        openRenameModal("file", item.id, item.original_name);
+      },
+    });
+    opts.push({
+      text: "Move",
+      action: function () {
+        openMoveModal("file", item.id, item.original_name);
+      },
+    });
     opts.push({ divider: true });
-    opts.push({ text: "Delete", danger: true, action: function () { openDeleteModal("file", item.id, item.original_name); } });
+    opts.push({
+      text: "Delete",
+      danger: true,
+      action: function () {
+        openDeleteModal("file", item.id, item.original_name);
+      },
+    });
     opts.forEach(function (opt) {
       if (opt.divider) {
         var d = document.createElement("div");
@@ -756,7 +828,7 @@ function attachShaCopyHandler(boxEl, shaText) {
     clearTimeout(resetTimer);
 
     boxEl.classList.remove("sha-pop", "sha-shake");
-    void boxEl.offsetWidth; 
+    void boxEl.offsetWidth;
 
     boxEl.classList.add("is-copied");
 
@@ -1000,7 +1072,7 @@ function renderGrid(filteredFolders, filteredFiles, query, accordion) {
       "text-center py-2 flex-grow-1 d-flex flex-column align-items-center justify-content-center";
     centerBox.style.cursor = "pointer";
     centerBox.innerHTML =
-      '<span class="grid-icon-large mb-1" style="font-family: \'Segoe UI Symbol\', \'Apple Symbols\', sans-serif !important; font-size: 2.2rem; color: #000000; line-height: 1;">&#x1F4C1;&#xFE0E;</span>' +
+      "<span class=\"grid-icon-large mb-1\" style=\"font-family: 'Segoe UI Symbol', 'Apple Symbols', sans-serif !important; font-size: 2.2rem; color: #000000; line-height: 1;\">&#x1F4C1;&#xFE0E;</span>" +
       '<div class="fw-bold small text-truncate w-100 px-1" title="' +
       escapeHtml(folder.name) +
       '">' +
@@ -1031,7 +1103,10 @@ function renderGrid(filteredFolders, filteredFiles, query, accordion) {
     card.setAttribute("data-mime", file.mime_type || "");
     card.draggable = true;
     card.ondragstart = function (e) {
-      e.dataTransfer.setData("application/json", JSON.stringify({ fileId: file.id, fileName: file.original_name }));
+      e.dataTransfer.setData(
+        "application/json",
+        JSON.stringify({ fileId: file.id, fileName: file.original_name })
+      );
       e.dataTransfer.effectAllowed = "move";
     };
     card.addEventListener("contextmenu", function (e) {
@@ -1085,7 +1160,8 @@ function renderGrid(filteredFolders, filteredFiles, query, accordion) {
         var lazyThumbWrap = document.createElement("div");
         lazyThumbWrap.className = "w-100 h-100 d-flex align-items-center justify-content-center";
         lazyThumbWrap.setAttribute("data-video-id", file.id);
-        lazyThumbWrap.innerHTML = '<span class="grid-icon-large text-secondary opacity-50" style="font-family: \'Segoe UI Symbol\', \'Apple Symbols\', sans-serif !important;">▶</span>';
+        lazyThumbWrap.innerHTML =
+          "<span class=\"grid-icon-large text-secondary opacity-50\" style=\"font-family: 'Segoe UI Symbol', 'Apple Symbols', sans-serif !important;\">▶</span>";
         thumbBox.appendChild(lazyThumbWrap);
         videoThumbObserver.observe(lazyThumbWrap);
       } else {
@@ -1096,7 +1172,10 @@ function renderGrid(filteredFolders, filteredFiles, query, accordion) {
       }
     } else {
       var icon = getFileUnicodeIcon(file.mime_type);
-      thumbBox.innerHTML = '<span class="grid-icon-large text-secondary" style="font-family: \'Segoe UI Symbol\', \'Apple Symbols\', sans-serif !important;">' + icon + "</span>";
+      thumbBox.innerHTML =
+        "<span class=\"grid-icon-large text-secondary\" style=\"font-family: 'Segoe UI Symbol', 'Apple Symbols', sans-serif !important;\">" +
+        icon +
+        "</span>";
     }
 
     thumbBox.onclick = function () {
@@ -1293,7 +1372,10 @@ function renderListView(filteredFolders, filteredFiles, query, accordion) {
     item.setAttribute("data-item-key", "file-" + file.id);
     item.draggable = true;
     item.ondragstart = function (e) {
-      e.dataTransfer.setData("application/json", JSON.stringify({ fileId: file.id, fileName: file.original_name }));
+      e.dataTransfer.setData(
+        "application/json",
+        JSON.stringify({ fileId: file.id, fileName: file.original_name })
+      );
       e.dataTransfer.effectAllowed = "move";
     };
     item.addEventListener("contextmenu", function (e) {
@@ -1333,7 +1415,7 @@ function renderListView(filteredFolders, filteredFiles, query, accordion) {
     btn.innerHTML =
       '<div class="d-flex align-items-center justify-content-between w-100 me-3 text-truncate">' +
       '<div class="d-flex align-items-center gap-2 text-truncate">' +
-      '<span class="text-muted me-1" style="font-family: \'Segoe UI Symbol\', \'Apple Symbols\', sans-serif !important; font-size: 1.15rem; line-height: 1;">' +
+      "<span class=\"text-muted me-1\" style=\"font-family: 'Segoe UI Symbol', 'Apple Symbols', sans-serif !important; font-size: 1.15rem; line-height: 1;\">" +
       fileGlyph +
       "</span>" +
       '<span class="fw-bold text-truncate" title="' +
@@ -1586,7 +1668,10 @@ function updateBatchBar() {
 
   if (selectionDock) {
     if (totalSelected > 0) {
-      if (selectionDock.classList.contains("d-none") || selectionDock.classList.contains("dock-closing")) {
+      if (
+        selectionDock.classList.contains("d-none") ||
+        selectionDock.classList.contains("dock-closing")
+      ) {
         selectionDock.classList.remove("d-none", "dock-closing");
         selectionDock.classList.add("dock-opening");
         setTimeout(function () {
@@ -1606,7 +1691,10 @@ function updateBatchBar() {
         selectionDockInfo.textContent = infoText;
       }
     } else {
-      if (!selectionDock.classList.contains("d-none") && !selectionDock.classList.contains("dock-closing")) {
+      if (
+        !selectionDock.classList.contains("d-none") &&
+        !selectionDock.classList.contains("dock-closing")
+      ) {
         selectionDock.classList.remove("dock-opening");
         selectionDock.classList.add("dock-closing");
         setTimeout(function () {
@@ -1639,8 +1727,7 @@ function updateSelectionUI() {
 
   if (selectAllFilesCheckbox) {
     var totalFiles = allLoadedFiles.length;
-    selectAllFilesCheckbox.checked =
-      totalFiles > 0 && selectedFileIds.size === totalFiles;
+    selectAllFilesCheckbox.checked = totalFiles > 0 && selectedFileIds.size === totalFiles;
   }
 
   updateBatchBar();
@@ -1767,12 +1854,7 @@ document.getElementById("batch-download-btn").onclick = function () {
 
 document.getElementById("batch-delete-btn").onclick = function () {
   if (selectedFileIds.size === 0 && selectedFolderIds.size === 0) return;
-  if (
-    !confirm(
-      "fuck em all? southern style lemon peppers style?"
-    )
-  )
-    return;
+  if (!confirm("fuck em all? southern style lemon peppers style?")) return;
 
   api("/files/batch/delete", {
     method: "POST",
@@ -2311,7 +2393,10 @@ if (videoPlayPauseBtn && videoPlayerEl) {
   if (videoFwdBtn) {
     videoFwdBtn.onclick = function () {
       if (videoPlayerEl.duration) {
-        videoPlayerEl.currentTime = Math.min(videoPlayerEl.duration, videoPlayerEl.currentTime + 10);
+        videoPlayerEl.currentTime = Math.min(
+          videoPlayerEl.duration,
+          videoPlayerEl.currentTime + 10
+        );
       }
     };
   }
@@ -2581,7 +2666,8 @@ videoPlayerEl.addEventListener("pause", function () {
 });
 videoPlayerEl.addEventListener("timeupdate", function () {
   if (videoMiniTime && videoPlayerEl.duration) {
-    videoMiniTime.textContent = formatDuration(videoPlayerEl.currentTime) + " / " + formatDuration(videoPlayerEl.duration);
+    videoMiniTime.textContent =
+      formatDuration(videoPlayerEl.currentTime) + " / " + formatDuration(videoPlayerEl.duration);
   }
 });
 
@@ -2675,10 +2761,7 @@ function openUploadTray() {
 }
 
 function closeUploadTrayWithAnimation() {
-  if (
-    uploadTray.classList.contains("d-none") ||
-    uploadTray.classList.contains("tray-closing")
-  )
+  if (uploadTray.classList.contains("d-none") || uploadTray.classList.contains("tray-closing"))
     return;
 
   var mascots = [":3", "<3", "xD"];

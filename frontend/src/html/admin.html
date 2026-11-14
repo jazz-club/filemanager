@@ -8,7 +8,6 @@
     <link rel="stylesheet" href="/src/css/style.css" />
   </head>
   <body>
-    
     <nav class="navbar navbar-expand navbar-light bg-white mb-4 shadow-sm">
       <div class="container-lg">
         <a class="navbar-brand fw-bold d-flex align-items-center gap-2" href="/admin">
@@ -24,7 +23,6 @@
     <main class="container-lg mb-5">
       <div id="admin-msg" class="alert d-none mb-3" role="alert"></div>
 
-      
       <div id="admin-login-section" class="row justify-content-center">
         <div class="col-12 col-md-5">
           <div class="card shadow-sm border-0">
@@ -70,9 +68,7 @@
         </div>
       </div>
 
-      
       <div id="admin-dashboard-section" class="d-none">
-        
         <div class="row g-3 mb-4">
           <div class="col-6 col-md-3">
             <div class="card p-3 shadow-sm border-0 text-center">
@@ -100,7 +96,6 @@
           </div>
         </div>
 
-        
         <div class="card shadow-sm border-0 mb-4">
           <div
             class="card-body p-4 d-flex flex-wrap justify-content-between align-items-center gap-3"
@@ -110,9 +105,7 @@
                 <h5 class="fw-bold mb-0">Account Registration</h5>
                 <span id="reg-status-badge" class="badge bg-success">Active</span>
               </div>
-              <p class="small text-muted mb-0">
-                Disable when unused please meow
-              </p>
+              <p class="small text-muted mb-0">Disable when unused please meow</p>
             </div>
             <div class="d-flex align-items-center gap-2">
               <button id="admin-toggle-reg-btn" class="btn btn-sm btn-white">
@@ -122,7 +115,6 @@
           </div>
         </div>
 
-        
         <div class="card shadow-sm border-0 mb-4 overflow-hidden">
           <div
             class="card-header bg-white py-3 border-bottom d-flex justify-content-between align-items-center"
@@ -142,16 +134,13 @@
                   <th scope="col" class="text-end" style="width: 140px">Actions</th>
                 </tr>
               </thead>
-              <tbody id="admin-users-table-body">
-                
-              </tbody>
+              <tbody id="admin-users-table-body"></tbody>
             </table>
           </div>
         </div>
       </div>
     </main>
 
-    
     <div class="modal fade" id="deleteUserModal" tabindex="-1" aria-hidden="true">
       <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content border-danger">
@@ -163,11 +152,14 @@
               data-bs-dismiss="modal"
               aria-label="Close"
               title="Close"
-            >✕</button>
+            >
+              ✕
+            </button>
           </div>
           <div class="modal-body">
             <p class="text-danger fw-bold mb-2">
-              fuck em? like (<span id="delete-target-pseudonym"></span>, ID: <span id="delete-target-id"></span>)
+              fuck em? like (<span id="delete-target-pseudonym"></span>, ID:
+              <span id="delete-target-id"></span>)
             </p>
           </div>
           <div class="modal-footer">

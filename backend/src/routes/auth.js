@@ -177,7 +177,6 @@ router.post("/logout", (req, res) => {
   });
 });
 
-
 // i know for a fact this isnt sufficient but i cant remember why
 router.get("/me", (req, res) => {
   if (!req.session.userId) return res.status(401).json({ error: "Not authenticated" });

@@ -29,9 +29,7 @@ function showMsg(text, type) {
       if (type === "error") alertClass = "alert-danger";
       else if (type === "success") alertClass = "alert-success";
       el.className =
-        "alert " +
-        alertClass +
-        " d-flex align-items-center justify-content-between mb-3";
+        "alert " + alertClass + " d-flex align-items-center justify-content-between mb-3";
       el.innerHTML =
         '<div class="d-flex align-items-center gap-2 flex-grow-1 text-break pe-2">' +
         '<span class="fw-bold" style="font-size: 0.9rem;">' +
@@ -68,7 +66,12 @@ function pushNotification(text, type) {
   if (emptyPlaceholder) emptyPlaceholder.classList.add("d-none");
 
   var item = document.createElement("div");
-  var borderClass = type === "error" ? "text-danger border-danger" : (type === "success" ? "text-success border-success" : "text-dark border-dark");
+  var borderClass =
+    type === "error"
+      ? "text-danger border-danger"
+      : type === "success"
+        ? "text-success border-success"
+        : "text-dark border-dark";
   item.className = "small p-1 px-2 mb-1 border rounded bg-light " + borderClass;
   item.style.fontSize = "0.78rem";
   item.textContent = (type === "error" ? "× " : "• ") + text;
@@ -109,13 +112,16 @@ function formatDate(isoStr) {
 }
 
 document.addEventListener("click", function (e) {
-  var btn = e.target.closest(".toggle-pw-btn, #toggle-pass-visibility, #toggle-admin-pass-visibility");
+  var btn = e.target.closest(
+    ".toggle-pw-btn, #toggle-pass-visibility, #toggle-admin-pass-visibility"
+  );
   if (!btn) return;
   e.preventDefault();
   var targetId = btn.getAttribute("data-target");
   var input = targetId
     ? document.getElementById(targetId)
-    : (btn.previousElementSibling || (btn.closest(".input-group") ? btn.closest(".input-group").querySelector("input") : null));
+    : btn.previousElementSibling ||
+      (btn.closest(".input-group") ? btn.closest(".input-group").querySelector("input") : null);
   if (!input) return;
   if (input.type === "password") {
     input.type = "text";
