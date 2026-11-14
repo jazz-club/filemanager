@@ -5,13 +5,17 @@ const KEY_LEN = 32;
 const IV_LEN = 12;
 const TAG_LEN = 16;
 
+let cachedKey = null;
+
 function getKey() {
+  if (cachedKey) return cachedKey;
   const secret = process.env.SESSION_SECRET;
   const salt = process.env.ENCRYPTION_SALT;
   if (!secret || !salt) {
     throw new Error("SESSION_SECRET and ENCRYPTION_SALT not initialised");
   }
-  return crypto.scryptSync(secret, salt, KEY_LEN);
+  cachedKey = crypto.scryptSync(secret, salt, KEY_LEN);
+  return cachedKey;
 }
 
 function encrypt(plaintext) {

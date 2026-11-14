@@ -1,6 +1,7 @@
 const { Router } = require("express");
 const { pool } = require("../db");
 const { deleteObject } = require("../storage");
+const { getClientIp, checkCooldown, recordFailedAttempt, clearCooldown } = require("../ratelimit");
 
 const router = Router();
 
@@ -11,16 +12,29 @@ function requireAdmin(req, res, next) {
   next();
 }
 
-router.post("/login", (req, res) => {
+router.post("/login", async (req, res) => {
   const { username, password } = req.body;
   const adminUser = process.env.ADMIN_USERNAME || "admin";
   const adminPass = process.env.ADMIN_PASSWORD || "adminsecretpassword";
 
   if (!username || !password) {
-    return res.status(400).json({ error: "backend creds required" });
+    return res.status(400).json({ error: "Username and password required" });
+  }
+
+  const clientIp = getClientIp(req);
+  const attemptKey = `admin:${clientIp}`;
+
+  const cooldown = await checkCooldown(attemptKey);
+  if (cooldown.locked) {
+    res.setHeader("Retry-After", cooldown.retryAfterSeconds);
+    return res.status(429).json({
+      error: `ey man wat da hell at least wait ${cooldown.retryAfterSeconds}s.`,
+      retryAfter: cooldown.retryAfterSeconds,
+    });
   }
 
   if (username === adminUser && password === adminPass) {
+    await clearCooldown(attemptKey);
     req.session.regenerate((err) => {
       if (err) return res.status(500).json({ error: "Session creation error" });
       req.session.isAdmin = true;
@@ -28,7 +42,15 @@ router.post("/login", (req, res) => {
       res.json({ message: "Admin authenticated", admin: adminUser });
     });
   } else {
-    res.status(401).json({ error: "Invalid admin creds, hmm..." });
+    const lockStatus = await recordFailedAttempt(attemptKey);
+    if (lockStatus.locked) {
+      res.setHeader("Retry-After", lockStatus.retryAfterSeconds);
+      return res.status(429).json({
+        error: `cooldown active for ${lockStatus.retryAfterSeconds}s.`,
+        retryAfter: lockStatus.retryAfterSeconds,
+      });
+    }
+    res.status(401).json({ error: "Invalid admin credentials" });
   }
 });
 
@@ -109,43 +131,7 @@ router.patch("/settings", requireAdmin, async (req, res) => {
   }
 });
 
-router.get("/settings", requireAdmin, async (req, res) => {
-  try {
-    const q = await pool.query(
-      "SELECT key, value FROM system_settings WHERE key = 'allow_registration'"
-    );
-    const allowReg = q.rows.length === 0 || q.rows[0].value === "true";
-    res.json({ allowRegistration: allowReg });
-  } catch (err) {
-    console.error("Admin get settings error:", err);
-    res.status(500).json({ error: "Failed to fetch settings" });
-  }
-});
 
-router.patch("/settings", requireAdmin, async (req, res) => {
-  try {
-    const { allowRegistration } = req.body;
-    if (typeof allowRegistration !== "boolean") {
-      return res.status(400).json({ error: "allowRegistration boolean required" });
-    }
-
-    const strVal = allowRegistration ? "true" : "false";
-    await pool.query(
-      `INSERT INTO system_settings (key, value, updated_at) 
-       VALUES ('allow_registration', $1, NOW()) 
-       ON CONFLICT (key) DO UPDATE SET value = $1, updated_at = NOW()`,
-      [strVal]
-    );
-
-    res.json({
-      message: `New account registrations are now ${allowRegistration ? "ENABLED" : "DISABLED"}.`,
-      allowRegistration,
-    });
-  } catch (err) {
-    console.error("Admin update settings error:", err);
-    res.status(500).json({ error: "Failed to update settings" });
-  }
-});
 
 router.get("/users", requireAdmin, async (req, res) => {
   try {
@@ -191,7 +177,7 @@ router.delete("/users/:id", requireAdmin, async (req, res) => {
       try {
         await deleteObject(f.storage_key);
       } catch (minioErr) {
-        console.error("Error purging MinIO file:", f.storage_key, minioErr);
+        console.error("Error deleting MD minIO file:", f.storage_key, minioErr);
       }
     }
 

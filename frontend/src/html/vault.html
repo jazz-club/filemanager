@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>PinkBox ❤︎ | Files</title>
     <link rel="stylesheet" href="/src/css/bootstrap.min.css" />
-    <link rel="stylesheet" href="/src/css/style.css?v=9" />
+    <link rel="stylesheet" href="/src/css/style.css" />
   </head>
   <body>
     
@@ -44,10 +44,11 @@
         <h5 class="offcanvas-title fw-bold" id="settingsOffcanvasLabel">PinkBox Menu</h5>
         <button
           type="button"
-          class="btn-close"
+          class="btn-close-custom ms-auto"
           data-bs-dismiss="offcanvas"
           aria-label="Close"
-        ></button>
+          title="Close Menu"
+        >✕</button>
       </div>
       <div class="offcanvas-body d-flex flex-column justify-content-between p-3">
         <div>
@@ -159,8 +160,8 @@
       
       <div id="drop-overlay" class="drop-overlay d-none">
         <div class="drop-overlay-box">
-          <h4 class="fw-bold mt-2 mb-0">Drop files anywhere</h4>
-          <p class="small text-muted mb-0">Up to 5GB per file will be encrypted on arrival</p>
+          <h4 class="fw-bold mt-2 mb-0">Drop files anywhere to upload</h4>
+          <p class="small text-muted mb-0">Size limit 5GB</p>
         </div>
       </div>
 
@@ -176,19 +177,8 @@
                 /root
               </button>
             </div>
-            <div class="d-flex gap-2 align-items-center">
-              <button
-                id="download-folder-btn"
-                class="btn btn-sm btn-white d-none"
-                title="Downloads as .zip"
-              >
-                Download Folder
-              </button>
-              <button id="refresh-btn" class="btn btn-sm btn-white">Refresh</button>
-            </div>
           </div>
 
-          
           <div class="row g-2 align-items-center">
             <div class="col-12 col-md-auto">
               <h2 class="h6 mb-0 fw-bold">Upload</h2>
@@ -196,111 +186,139 @@
             <div class="col">
               <input type="file" id="file-input" class="form-control" multiple />
             </div>
-            <div class="col-12 col-md-auto d-flex gap-2">
+            <div class="col-12 col-md-auto">
               <button type="button" id="start-upload-btn" class="btn btn-primary">
                 Feed Files To Server
-              </button>
-              <button type="button" id="new-folder-btn" class="btn btn-custom-folder">
-                + New Folder
               </button>
             </div>
           </div>
         </div>
       </div>
 
-      
-      <div class="row g-2 mb-3 align-items-center">
-        <div class="col-12 col-md-4">
+      <div class="continuous-toolbar mb-3" id="vault-continuous-toolbar">
+          <span class="ps-2 pe-1 text-muted fw-bold font-monospace" style="font-size: 0.95rem;">&#x2315;</span>
           <input
             type="text"
             id="search-input"
-            class="form-control form-control-sm"
-            placeholder="Search current directory…"
+            class="form-control toolbar-control"
+            placeholder="Search…"
           />
         </div>
-        <div class="col-6 col-md-4">
-          <select id="type-filter" class="form-select form-select-sm">
-            <option value="all">All File Types</option>
-            <option value="image">Images</option>
-            <option value="video">Videos</option>
-            <option value="audio">Audio</option>
-            <option value="document">Documents & Code</option>
-            <option value="archive">Archives (ZIP, TAR...)</option>
-          </select>
+
+        <div class="toolbar-divider"></div>
+
+        <div class="dropdown">
+          <button
+            class="toolbar-btn dropdown-toggle"
+            type="button"
+            id="filter-dropdown-btn"
+            data-bs-toggle="dropdown"
+            aria-expanded="false"
+          >
+            Filter: All
+          </button>
+          <ul class="dropdown-menu shadow-sm border-dark" aria-labelledby="filter-dropdown-btn" id="filter-dropdown-menu">
+            <li><button class="dropdown-item py-1 filter-opt active fw-bold" type="button" data-filter="all">All File Types</button></li>
+            <li><button class="dropdown-item py-1 filter-opt" type="button" data-filter="image">Images</button></li>
+            <li><button class="dropdown-item py-1 filter-opt" type="button" data-filter="video">Videos</button></li>
+            <li><button class="dropdown-item py-1 filter-opt" type="button" data-filter="audio">Audio</button></li>
+            <li><button class="dropdown-item py-1 filter-opt" type="button" data-filter="document">Documents &amp; Code</button></li>
+            <li><button class="dropdown-item py-1 filter-opt" type="button" data-filter="archive">Archives</button></li>
+          </ul>
         </div>
-        <div class="col-6 col-md-4">
-          <select id="sort-select" class="form-select form-select-sm">
-            <option value="date-desc">Newest First</option>
-            <option value="date-asc">Oldest First</option>
-            <option value="name-asc">Name (a-z)</option>
-            <option value="name-desc">Name (z-a)</option>
-            <option value="size-desc">Largest First</option>
-            <option value="size-asc">Smallest First</option>
-          </select>
+
+        <div class="toolbar-divider"></div>
+
+          <button
+            class="toolbar-btn dropdown-toggle"
+            type="button"
+            id="sort-dropdown-btn"
+            data-bs-toggle="dropdown"
+            aria-expanded="false"
+          >
+            Sort: Newest
+          </button>
+          <ul class="dropdown-menu shadow-sm border-dark" aria-labelledby="sort-dropdown-btn" id="sort-dropdown-menu">
+            <li><button class="dropdown-item py-1 sort-opt active fw-bold" type="button" data-sort="date-desc">Newest First</button></li>
+            <li><button class="dropdown-item py-1 sort-opt" type="button" data-sort="date-asc">Oldest First</button></li>
+            <li><button class="dropdown-item py-1 sort-opt" type="button" data-sort="name-asc">Name (A-Z)</button></li>
+            <li><button class="dropdown-item py-1 sort-opt" type="button" data-sort="name-desc">Name (Z-A)</button></li>
+            <li><button class="dropdown-item py-1 sort-opt" type="button" data-sort="size-desc">Largest First</button></li>
+            <li><button class="dropdown-item py-1 sort-opt" type="button" data-sort="size-asc">Smallest First</button></li>
+          </ul>
+        </div>
+
+        <div class="toolbar-divider"></div>
+
+        <div class="dropdown">
+          <button
+            class="toolbar-btn dropdown-toggle"
+            type="button"
+            id="view-dropdown-btn"
+            data-bs-toggle="dropdown"
+            aria-expanded="false"
+          >
+            View
+          </button>
+          <ul class="dropdown-menu shadow-sm border-dark" aria-labelledby="view-dropdown-btn" style="min-width: 13.5rem;">
+            <li><button class="dropdown-item py-1 d-flex justify-content-between align-items-center gap-3" type="button" id="view-mode-list-btn"><span>List View</span><span class="view-check ms-3" id="view-check-list">&#x2713;</span></button></li>
+            <li><button class="dropdown-item py-1 d-flex justify-content-between align-items-center gap-3" type="button" id="view-mode-grid-btn"><span>Grid View</span><span class="view-check ms-3 d-none" id="view-check-grid">&#x2713;</span></button></li>
+            <li><hr class="dropdown-divider my-1" /></li>
+            <li><button class="dropdown-item py-1 d-flex justify-content-between align-items-center gap-3" type="button" id="view-toggle-thumbs-btn"><span>Show Thumbnails</span><span class="view-check ms-3" id="view-check-thumbs">&#x2713;</span></button></li>
+          </ul>
+        </div>
+
+        <div class="toolbar-divider"></div>
+
+        <div class="dropdown">
+          <button
+            class="toolbar-btn dropdown-toggle"
+            type="button"
+            id="select-dropdown-btn"
+            data-bs-toggle="dropdown"
+            aria-expanded="false"
+          >
+            Select
+          </button>
+          <ul class="dropdown-menu shadow-sm border-dark" aria-labelledby="select-dropdown-btn">
+            <li><button class="dropdown-item py-1" type="button" id="batch-select-all-btn">Select All</button></li>
+            <li><button class="dropdown-item py-1" type="button" id="batch-select-files-btn">Select All Files</button></li>
+            <li><button class="dropdown-item py-1" type="button" id="batch-select-folders-btn">Select All Folders</button></li>
+            <li><hr class="dropdown-divider my-1" /></li>
+            <li><h6 class="dropdown-header small text-muted text-uppercase mb-0 py-1">By Type</h6></li>
+            <li><button class="dropdown-item py-1" type="button" data-select-type="audio">Audio Files</button></li>
+            <li><button class="dropdown-item py-1" type="button" data-select-type="image">Images</button></li>
+            <li><button class="dropdown-item py-1" type="button" data-select-type="video">Videos</button></li>
+            <li><button class="dropdown-item py-1" type="button" data-select-type="document">Documents</button></li>
+            <li><button class="dropdown-item py-1" type="button" data-select-type="archive">Archives</button></li>
+          </ul>
+        </div>
+
+        <select id="type-filter" class="d-none"><option value="all">all</option></select>
+        <select id="sort-select" class="d-none"><option value="date-desc">date-desc</option></select>
+
+        <div class="ms-auto d-flex align-items-center">
+          <div class="toolbar-divider"></div>
+          <button type="button" id="new-folder-btn" class="toolbar-btn" title="Create Folder">
+            + New Folder
+          </button>
+
+          <div class="toolbar-divider"></div>
+          <button id="refresh-btn" class="toolbar-btn" title="Refresh list">
+            Refresh
+          </button>
+
+          <div class="toolbar-divider"></div>
+          <span class="px-2 small text-muted font-monospace" id="file-count" title="Item count">0</span>
         </div>
       </div>
 
-      
-      <div
-        id="batch-action-bar"
-        class="alert border-2 border-dark bg-white text-dark shadow-sm d-none d-flex flex-wrap justify-content-between align-items-center py-2 px-3 mb-3 animated-bar"
-      >
-        <div class="d-flex align-items-center gap-2">
-          <span class="fw-bold"><span id="batch-count">0</span> items selected</span>
-          <div class="dropdown d-inline-block">
-            <button
-              class="btn btn-sm btn-white dropdown-toggle"
-              type="button"
-              id="batch-select-dropdown"
-              data-bs-toggle="dropdown"
-              aria-expanded="false"
-            >
-              Select
-            </button>
-            <ul class="dropdown-menu shadow-sm border-dark" aria-labelledby="batch-select-dropdown">
-              <li><button class="dropdown-item py-1" type="button" id="batch-select-all-btn">Select All Files</button></li>
-              <li><button class="dropdown-item py-1" type="button" id="batch-select-all-folders-btn">Select All Folders</button></li>
-              <li><hr class="dropdown-divider my-1" /></li>
-              <li><h6 class="dropdown-header small text-muted text-uppercase mb-0 py-1">Select By Type</h6></li>
-              <li><button class="dropdown-item py-1" type="button" data-select-type="audio">All Audio Files</button></li>
-              <li><button class="dropdown-item py-1" type="button" data-select-type="image">All Images</button></li>
-              <li><button class="dropdown-item py-1" type="button" data-select-type="video">All Videos</button></li>
-              <li><button class="dropdown-item py-1" type="button" data-select-type="document">All Documents</button></li>
-              <li><button class="dropdown-item py-1" type="button" data-select-type="archive">All Archives</button></li>
-            </ul>
-          </div>
-        </div>
-        <div class="d-flex gap-2 flex-wrap">
-          <button id="batch-download-btn" class="btn btn-sm btn-white">Download as .zip</button>
-          <button id="batch-move-btn" class="btn btn-sm btn-white">Move</button>
-          <button id="batch-delete-btn" class="btn btn-sm btn-danger">Delete</button>
-          <button id="batch-cancel-btn" class="btn btn-sm btn-white">Deselect All</button>
-        </div>
-      </div>
+      <div id="folders-container" class="d-none"><div id="folders-grid"></div></div>
 
-      
-      <div id="folders-container" class="mb-3">
-        <div class="d-flex align-items-center mb-2">
-          <h6 class="fw-bold mb-0 text-muted">Folders</h6>
-        </div>
-        <div id="folders-grid" class="row g-2"></div>
-      </div>
-
-      
-      <div class="d-flex justify-content-between align-items-center mb-2">
-        <h2 class="h6 mb-0 fw-bold text-muted">
-          Files in folder <span id="file-count" class="badge bg-secondary ms-1">0</span>
-        </h2>
-        <div class="form-check form-check-inline small">
-          <input class="form-check-input" type="checkbox" id="select-all-files" />
-          <label class="form-check-label" for="select-all-files">Select All</label>
-        </div>
-      </div>
-
-      
       <div class="card shadow-sm border-0 mb-4 overflow-hidden">
-        <div id="file-list-empty" class="text-center text-muted py-4 d-none">
-          No files here. FEED HER!
+        <div id="file-list-empty" class="text-center text-muted py-5 d-none">
+          <span class="d-block mb-2 font-monospace fw-bold whimsical-float" style="font-size: 1.8rem; color: #ff69b4; line-height: 1;">:3</span>
+          <div class="small fw-semibold text-muted">nun here for now</div>
         </div>
         <div class="accordion" id="filesAccordion"></div>
       </div>
@@ -313,7 +331,7 @@
           <div class="modal-content">
             <div class="modal-header">
               <h5 class="modal-title fw-bold">Create New Folder</h5>
-              <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+              <button type="button" class="btn-close-custom ms-auto" data-bs-dismiss="modal" aria-label="Close" title="Close">✕</button>
             </div>
             <div class="modal-body">
               <label class="form-label small fw-bold">Folder Name</label>
@@ -342,7 +360,7 @@
           <div class="modal-content">
             <div class="modal-header">
               <h5 class="modal-title fw-bold" id="rename-modal-title">Rename</h5>
-              <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+              <button type="button" class="btn-close-custom ms-auto" data-bs-dismiss="modal" aria-label="Close" title="Close">✕</button>
             </div>
             <div class="modal-body">
               <label class="form-label small fw-bold">New Name</label>
@@ -364,7 +382,7 @@
           <div class="modal-content">
             <div class="modal-header">
               <h5 class="modal-title fw-bold">Move to Folder</h5>
-              <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+              <button type="button" class="btn-close-custom ms-auto" data-bs-dismiss="modal" aria-label="Close" title="Close">✕</button>
             </div>
             <div class="modal-body">
               <p class="small text-muted mb-2">Destination:</p>
@@ -388,7 +406,7 @@
           <div class="modal-content">
             <div class="modal-header">
               <h5 class="modal-title fw-bold">Pick Folder Colour</h5>
-              <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+              <button type="button" class="btn-close-custom ms-auto" data-bs-dismiss="modal" aria-label="Close" title="Close">✕</button>
             </div>
             <div class="modal-body text-center">
               <p class="small text-muted mb-3">
@@ -413,7 +431,7 @@
           <div class="modal-content">
             <div class="modal-header">
               <h3 class="modal-title h5 fw-bold mb-0">Confirm Permanent Deletion</h3>
-              <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+              <button type="button" class="btn-close-custom ms-auto" data-bs-dismiss="modal" aria-label="Close" title="Close">✕</button>
             </div>
             <div class="modal-body">
               <p class="mb-0">
@@ -439,35 +457,44 @@
           <div class="modal-content">
             <div class="modal-header">
               <h5 class="modal-title fw-bold">Change Password</h5>
-              <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+              <button type="button" class="btn-close-custom ms-auto" data-bs-dismiss="modal" aria-label="Close" title="Close">✕</button>
             </div>
             <div class="modal-body">
               <div class="mb-3">
                 <label class="form-label small fw-bold">Current Password</label>
-                <input
-                  type="password"
-                  id="pw-current"
-                  class="form-control"
-                  autocomplete="current-password"
-                />
+                <div class="input-group">
+                  <input
+                    type="password"
+                    id="pw-current"
+                    class="form-control"
+                    autocomplete="current-password"
+                  />
+                  <button class="btn btn-white border-dark toggle-pw-btn" type="button" data-target="pw-current" title="Toggle visibility">&#x25C9;</button>
+                </div>
               </div>
               <div class="mb-3">
                 <label class="form-label small fw-bold">New Password (min 8 chars)</label>
-                <input
-                  type="password"
-                  id="pw-new"
-                  class="form-control"
-                  autocomplete="new-password"
-                />
+                <div class="input-group">
+                  <input
+                    type="password"
+                    id="pw-new"
+                    class="form-control"
+                    autocomplete="new-password"
+                  />
+                  <button class="btn btn-white border-dark toggle-pw-btn" type="button" data-target="pw-new" title="Toggle visibility">&#x25C9;</button>
+                </div>
               </div>
               <div>
                 <label class="form-label small fw-bold">Confirm New Password</label>
-                <input
-                  type="password"
-                  id="pw-confirm"
-                  class="form-control"
-                  autocomplete="new-password"
-                />
+                <div class="input-group">
+                  <input
+                    type="password"
+                    id="pw-confirm"
+                    class="form-control"
+                    autocomplete="new-password"
+                  />
+                  <button class="btn btn-white border-dark toggle-pw-btn" type="button" data-target="pw-confirm" title="Toggle visibility">&#x25C9;</button>
+                </div>
               </div>
             </div>
             <div class="modal-footer">
@@ -490,21 +517,26 @@
               <h5 class="modal-title fw-bold">Delete Account</h5>
               <button
                 type="button"
-                class="btn-close btn-close-white"
+                class="btn-close-custom ms-auto"
                 data-bs-dismiss="modal"
-              ></button>
+                aria-label="Close"
+                title="Close"
+              >✕</button>
             </div>
             <div class="modal-body">
               <p class="text-danger fw-bold">
                 See ya? ig
               </p>
               <p class="small text-muted mb-3">Please enter your password to confirm:</p>
-              <input
-                type="password"
-                id="delete-account-password"
-                class="form-control"
-                placeholder="Your password"
-              />
+              <div class="input-group">
+                <input
+                  type="password"
+                  id="delete-account-password"
+                  class="form-control"
+                  placeholder="Your password"
+                />
+                <button class="btn btn-white border-dark toggle-pw-btn" type="button" data-target="delete-account-password" title="Toggle visibility">&#x25C9;</button>
+              </div>
             </div>
             <div class="modal-footer">
               <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
@@ -520,37 +552,117 @@
 
       
       <div class="modal fade" id="videoModal" tabindex="-1" aria-hidden="true">
-        <div class="modal-dialog modal-lg modal-dialog-centered">
-          <div class="modal-content bg-dark text-white">
-            <div class="modal-header border-secondary position-relative">
-              <div class="d-flex align-items-center gap-2 text-truncate" style="max-width: 80%">
-                <h5 class="modal-title text-truncate mb-0" id="video-modal-title">Video Player</h5>
-                <span id="video-counter-text" class="small text-muted">1 / 1</span>
+        <div class="modal-dialog modal-xl modal-dialog-centered">
+          <div class="modal-content border-2 border-dark" style="background-color: #ffffff !important; color: #000000 !important;">
+            <div class="modal-header border-bottom border-dark d-flex justify-content-between align-items-center w-100" style="background-color: #ffffff !important;">
+              <div class="d-flex align-items-center gap-2 text-truncate flex-grow-1 me-3" style="max-width: 85%">
+                <h5 class="modal-title text-truncate mb-0 fw-bold text-dark" id="video-modal-title">Video Player</h5>
+                <span id="video-counter-text" class="small text-muted font-monospace">1 / 1</span>
               </div>
-              <button
-                type="button"
-                class="btn-close-custom"
-                data-bs-dismiss="modal"
-                id="video-modal-close"
-                aria-label="Close"
-              >×</button>
+              <div class="d-flex align-items-center gap-1 ms-auto flex-shrink-0">
+                <button
+                  type="button"
+                  class="btn-close-custom"
+                  id="video-modal-minimize"
+                  title="Minimize Video"
+                  style="font-size: 14px; font-weight: bold; line-height: 1;"
+                >🗕</button>
+                <button
+                  type="button"
+                  class="btn-close-custom"
+                  data-bs-dismiss="modal"
+                  id="video-modal-close"
+                  aria-label="Close"
+                  title="Close"
+                >✕</button>
+              </div>
             </div>
-            <div class="modal-body p-0 text-center">
+            <div class="modal-body p-0 text-center position-relative" style="background-color: #ffffff !important; overflow: hidden; display: flex; align-items: center; justify-content: center;">
               <video
                 id="video-player-el"
-                controls
-                style="max-height: 70vh; width: 100%; outline: none"
-                preload="metadata"
+                style="max-height: 70vh; max-width: 100%; width: auto; height: auto; outline: none; background: #ffffff; cursor: pointer; display: block; margin: 0 auto;"
+                preload="auto"
               ></video>
             </div>
-            <div class="modal-footer border-secondary justify-content-between py-2">
-              <button type="button" class="btn btn-sm btn-outline-light" id="video-prev-btn">
-                &lt; Prev Video
-              </button>
-              <div class="small text-muted d-none d-md-inline">Scrolls through only files with same type</div>
-              <button type="button" class="btn btn-sm btn-outline-light" id="video-next-btn">
-                Next Video &gt;
-              </button>
+            
+            <div class="p-3 border-top border-dark" id="video-custom-controls" style="background-color: #ffffff !important; color: #000000 !important;">
+              <div
+                class="video-progress-wrap my-1"
+                id="video-progress-wrap"
+                style="
+                  cursor: pointer;
+                  height: 10px;
+                  background: #f1f5f9;
+                  border-radius: 5px;
+                  border: 2px solid #000000;
+                  position: relative;
+                "
+              >
+                <div
+                  id="video-progress-fill"
+                  style="height: 100%; width: 0%; background: #ff69b4; border-radius: 3px; position: relative;"
+                >
+                  <div
+                    id="video-progress-handle"
+                    style="
+                      position: absolute;
+                      right: -12px;
+                      top: 50%;
+                      transform: translateY(-50%);
+                      width: 24px;
+                      height: 24px;
+                      background-color: #ffffff;
+                      border: 2px solid #000000;
+                      border-radius: 50%;
+                      box-shadow: 2px 2px 0 0 #000000;
+                      pointer-events: none;
+                    "
+                  ></div>
+                </div>
+              </div>
+              
+              <div class="d-flex justify-content-between small text-muted font-monospace mb-2" style="font-size: 0.75rem;">
+                <span id="video-current-time">0:00</span>
+                <span id="video-total-time">0:00</span>
+              </div>
+
+              <div class="d-flex align-items-center justify-content-between flex-wrap gap-2">
+                <div class="d-flex align-items-center gap-1">
+                  <button type="button" class="btn btn-sm btn-white border border-dark py-1 px-2" id="video-prev-btn" title="Previous Video">
+                    |&lt; Prev
+                  </button>
+                  <button type="button" class="btn btn-sm btn-white border border-dark py-1 px-2" id="video-rwd-btn" title="Rewind 10s">
+                    -10s
+                  </button>
+                  <button type="button" class="btn btn-sm btn-primary py-1 px-3 fw-bold" id="video-play-pause-btn" style="min-width: 75px">
+                    Play
+                  </button>
+                  <button type="button" class="btn btn-sm btn-white border border-dark py-1 px-2" id="video-fwd-btn" title="Forward 10s">
+                    +10s
+                  </button>
+                  <button type="button" class="btn btn-sm btn-white border border-dark py-1 px-2" id="video-next-btn" title="Next Video">
+                    Next &gt;|
+                  </button>
+                </div>
+                <div class="d-flex align-items-center gap-2 ms-auto">
+                  <button type="button" class="btn btn-sm btn-white border border-dark py-0 px-2" id="video-mute-btn">
+                    Mute
+                  </button>
+                  <input
+                    type="range"
+                    class="form-range"
+                    id="video-volume-slider"
+                    min="0"
+                    max="1"
+                    step="0.05"
+                    value="1"
+                    style="width: 75px"
+                  />
+                  <button type="button" class="btn btn-sm btn-white border border-dark py-0 px-2" id="video-fullscreen-btn" title="Toggle Fullscreen">
+                    &#x26F6; Fullscreen
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -558,33 +670,34 @@
 
       
       <div class="modal fade" id="imageModal" tabindex="-1" aria-hidden="true">
-        <div class="modal-dialog modal-xl modal-dialog-centered">
-          <div class="modal-content bg-dark text-white">
-            <div class="modal-header border-secondary position-relative">
-              <h5 class="modal-title text-truncate" id="image-modal-title">Image Viewer</h5>
+        <div class="modal-dialog modal-dialog-centered">
+          <div class="modal-content border-2 border-dark" style="background-color: #ffffff !important; color: #000000 !important; box-shadow: 4px 4px 0 0 #000000; border-radius: 8px; overflow: hidden;">
+            <div class="modal-header border-bottom border-dark d-flex justify-content-between align-items-center w-100" style="background-color: #ffffff !important;">
+              <h5 class="modal-title text-truncate flex-grow-1 me-3 mb-0 fw-bold text-dark" id="image-modal-title">Image Viewer</h5>
               <button
                 type="button"
-                class="btn-close-custom"
+                class="btn-close-custom ms-auto flex-shrink-0"
                 data-bs-dismiss="modal"
                 id="image-modal-close"
                 aria-label="Close"
-              >×</button>
+                title="Close"
+              >✕</button>
             </div>
-            <div class="modal-body p-2 text-center" style="max-height: 80vh; overflow: auto">
+            <div class="modal-body p-0 text-center" style="max-height: 80vh; overflow: auto; background-color: #ffffff !important; display: flex; align-items: center; justify-content: center;">
               <img
                 id="image-viewer-el"
                 src=""
                 alt="Preview"
-                class="img-fluid rounded"
-                style="max-height: 75vh"
+                class="img-fluid"
+                style="max-height: 75vh; max-width: 100%; width: auto; height: auto; display: block; margin: 0 auto;"
               />
             </div>
-            <div class="modal-footer border-secondary justify-content-between">
-              <button type="button" class="btn btn-sm btn-outline-light" id="image-prev-btn">
+            <div class="modal-footer border-top border-dark justify-content-between" style="background-color: #ffffff !important;">
+              <button type="button" class="btn btn-sm btn-white border-dark fw-bold px-3" id="image-prev-btn">
                 Previous
               </button>
-              <span id="image-counter-text" class="small text-muted">1 / 1</span>
-              <button type="button" class="btn btn-sm btn-outline-light" id="image-next-btn">
+              <span id="image-counter-text" class="small text-muted font-monospace">1 / 1</span>
+              <button type="button" class="btn btn-sm btn-white border-dark fw-bold px-3" id="image-next-btn">
                 Next
               </button>
             </div>
@@ -598,7 +711,7 @@
           <div class="modal-content">
             <div class="modal-header">
               <h5 class="modal-title text-truncate" id="doc-modal-title">Document Preview</h5>
-              <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+              <button type="button" class="btn-close-custom ms-auto" data-bs-dismiss="modal" aria-label="Close" title="Close">✕</button>
             </div>
             <div class="modal-body p-3">
               <div id="doc-pdf-container" class="d-none">
@@ -626,23 +739,51 @@
     </main>
 
     
+      id="notification-tray-toggle-btn"
+      class="btn btn-sm btn-white position-fixed bottom-0 end-0 m-3 d-flex align-items-center gap-1 shadow-sm"
+      style="z-index: 1055; border: 2px solid #000; border-radius: 20px; padding: 0.35rem 0.75rem;"
+      title="Toggle Activity & Notifications"
+    >
+      <span style="font-size: 0.85rem;">⚑</span>
+      <span class="small fw-bold">Activity</span>
+      <span id="notification-unread-dot" class="badge bg-danger rounded-pill p-1 d-none" style="font-size: 0.5rem;">•</span>
+    </button>
+
     <div
       id="upload-tray"
-      class="card shadow-lg border-2 border-dark d-none position-fixed bottom-0 end-0 m-3"
+      class="card shadow-lg border-2 border-dark d-none position-fixed bottom-0 end-0 m-3 mb-5"
       style="width: 380px; max-width: 90vw; z-index: 1060; border-radius: 10px; background: #fff"
     >
       <div
         class="card-header bg-white py-2 px-3 d-flex justify-content-between align-items-center border-bottom"
       >
-        <span class="small fw-bold">Uploads (<span id="upload-tray-count">0</span>)</span>
-        <button type="button" class="btn-close btn-sm" id="close-upload-tray-btn"></button>
+        <div class="d-flex align-items-center gap-1">
+          <span class="small fw-bold">Activity &amp; Notifications</span>
+          <span id="upload-tray-count" class="badge bg-dark rounded-pill ms-1 d-none" style="font-size: 0.65rem;">0</span>
+        </div>
+        <button type="button" class="btn-close-custom" id="close-upload-tray-btn" title="Hide Activity Tray">✕</button>
       </div>
-      <div class="card-body p-2" id="upload-tray-items" style="max-height: 250px; overflow-y: auto">
-        
+      <div id="notification-tray-messages" class="p-2 border-bottom d-none" style="max-height: 120px; overflow-y: auto;"></div>
+      <div id="tray-empty-placeholder" class="text-center py-4 text-muted small">
+        <span class="d-block mb-1 font-monospace fw-bold whimsical-float" style="font-size: 1.4rem; color: #ff69b4; line-height: 1;">:3</span>
+        nun here for now
       </div>
     </div>
 
-    
+    <div
+      id="selection-dock"
+      class="card shadow-lg border-2 border-dark d-none position-fixed start-50 translate-middle-x"
+      style="bottom: 25px; z-index: 1045; background: #ffffff; border-radius: 8px; box-shadow: 4px 4px 0 0 #000000 !important;"
+    >
+      <div class="card-body py-2 px-3 d-flex align-items-center gap-2">
+        <span class="fw-bold font-monospace me-1" id="selection-dock-info">0 selected</span>
+        <button id="batch-download-btn" class="btn btn-sm btn-white border-dark" title="Download selected as ZIP">Download</button>
+        <button id="batch-move-btn" class="btn btn-sm btn-white border-dark" title="Move selected">Move</button>
+        <button id="batch-delete-btn" class="btn btn-sm btn-danger border-dark" title="Delete selected">Delete</button>
+        <button id="batch-deselect-dock-btn" class="btn btn-sm btn-white border-dark px-2 ms-1 fw-bold" title="Deselect All">✕ Deselect</button>
+      </div>
+    </div>
+
     <div
       id="audio-dock-player"
       class="card shadow-lg border-2 border-dark d-none position-fixed bottom-0 start-50 translate-middle-x mb-3"
@@ -658,12 +799,22 @@
             <span class="small fw-bold text-truncate" id="audio-dock-title">Music Player</span>
             <span class="badge bg-secondary" id="audio-track-counter">1 / 1</span>
           </div>
-          <button
-            type="button"
-            class="btn-close btn-sm"
-            id="audio-dock-close"
-            title="Close Player"
-          ></button>
+          <div class="d-flex align-items-center gap-1">
+            <button
+              type="button"
+              class="btn-close-custom"
+              id="audio-dock-minimize"
+              title="Minimize Audio"
+              style="font-size: 14px; width: 22px; height: 22px; line-height: 1;"
+            >🗕</button>
+            <button
+              type="button"
+              class="btn-close-custom"
+              id="audio-dock-close"
+              title="Close Player"
+              style="font-size: 11px; width: 22px; height: 22px; line-height: 1;"
+            >✕</button>
+          </div>
         </div>
 
         
@@ -687,15 +838,15 @@
               id="audio-progress-handle"
               style="
                 position: absolute;
-                right: -6px;
+                right: -12px;
                 top: 50%;
                 transform: translateY(-50%);
-                width: 12px;
-                height: 12px;
+                width: 24px;
+                height: 24px;
                 background-color: #ffffff;
                 border: 2px solid #000000;
                 border-radius: 50%;
-                box-shadow: 1px 1px 0 0 #000000;
+                box-shadow: 2px 2px 0 0 #000000;
                 pointer-events: none;
               "
             ></div>
@@ -773,8 +924,64 @@
       </div>
     </div>
 
+    <div
+      id="floating-video-mini"
+      class="card shadow-lg border-2 border-dark d-none position-fixed bottom-0 end-0 m-3"
+      style="width: 280px; z-index: 2050; border-radius: 8px; background: #ffffff;"
+    >
+      <div class="card-header bg-white py-1 px-2 border-bottom border-dark d-flex justify-content-between align-items-center">
+        <span class="small fw-bold text-truncate me-1 text-dark" id="video-mini-title" style="font-size: 0.75rem;">Video</span>
+        <div class="d-flex align-items-center gap-1">
+          <button type="button" class="btn btn-sm btn-white border border-dark p-0 px-1 fw-bold" id="video-mini-expand-btn" title="Expand Video" style="font-size: 0.72rem; line-height: 1.2;">🗖</button>
+          <button type="button" class="btn btn-sm btn-white border border-dark p-0 px-1 fw-bold" id="video-mini-close-btn" title="Close" style="font-size: 0.72rem; line-height: 1.2;">×</button>
+        </div>
+      </div>
+      <div class="p-0 text-center bg-black position-relative" style="height: 155px; overflow: hidden;" id="video-mini-viewport">
+      <div class="py-1 px-2 d-flex align-items-center bg-white border-top border-dark" style="font-size: 0.75rem;">
+        <button type="button" class="btn btn-sm btn-primary py-0 px-2 fw-bold" id="video-mini-play-btn" style="font-size: 0.72rem;">Play</button>
+      </div>
+    </div>
+
+      id="audio-mini-pill"
+      class="card shadow border-2 border-dark d-none position-fixed bottom-0 start-50 translate-middle-x mb-3"
+      style="z-index: 1050; border-radius: 25px; background: #ffffff; padding: 4px 14px;"
+    >
+      <div class="d-flex align-items-center gap-2">
+        <span class="text-primary font-monospace" style="font-size: 0.9rem;">♫</span>
+        <span class="small fw-bold text-truncate" id="audio-mini-title" style="max-width: 180px; font-size: 0.8rem;">Music</span>
+        <button type="button" class="btn btn-sm btn-primary py-0 px-2 fw-bold" id="audio-mini-play-btn" style="font-size: 0.72rem;">Pause</button>
+        <button type="button" class="btn btn-sm btn-white border border-dark py-0 px-2 fw-bold" id="audio-mini-expand-btn" title="Expand Player" style="font-size: 0.72rem;">🗖</button>
+        <button type="button" class="btn btn-sm btn-white border border-dark py-0 px-1 fw-bold" id="audio-mini-close-btn" title="Close Player" style="font-size: 0.72rem;">×</button>
+      </div>
+    </div>
+
+    <div id="retro-context-menu">
+      <div id="context-menu-items"></div>
+    </div>
+
+    <div class="modal fade" id="fileDetailsModal" tabindex="-1" aria-hidden="true">
+      <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-2 border-dark" style="background-color: #ffffff; color: #000000; box-shadow: 4px 4px 0 0 #000000; border-radius: 8px;">
+          <div class="modal-header border-bottom border-dark d-flex justify-content-between align-items-center">
+            <h5 class="modal-title fw-bold text-dark text-truncate mb-0" id="file-details-title">File Details</h5>
+            <button type="button" class="btn-close-custom ms-auto" data-bs-dismiss="modal" aria-label="Close" title="Close">✕</button>
+          </div>
+          <div class="modal-body p-3" id="file-details-body">
+            <!-- Dynamic info inserted here -->
+          </div>
+          <div class="modal-footer border-top border-dark d-flex justify-content-between flex-wrap gap-2">
+            <button type="button" class="btn btn-sm btn-secondary" data-bs-dismiss="modal">Close</button>
+            <div class="d-flex gap-2">
+              <button type="button" class="btn btn-sm btn-primary" id="file-details-preview-btn">Preview</button>
+              <a href="#" class="btn btn-sm btn-white border border-dark fw-bold" id="file-details-download-btn">Download</a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <script src="/src/js/bootstrap.bundle.min.js"></script>
-    <script src="/src/js/common.js?v=6"></script>
-    <script src="/src/js/vault.js?v=8"></script>
+    <script src="/src/js/common.js"></script>
+    <script src="/src/js/vault.js"></script>
   </body>
 </html>

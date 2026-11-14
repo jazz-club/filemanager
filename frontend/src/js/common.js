@@ -8,20 +8,76 @@ function api(path, opts) {
   return fetch("/api" + path, opts);
 }
 
+function escapeHtml(str) {
+  if (!str) return "";
+  return String(str)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
+
 function showMsg(text, type) {
   var el = document.getElementById("msg");
-  if (!el) return;
-  if (!text) {
-    el.className = "alert d-none";
-    el.textContent = "";
-    return;
+  if (el) {
+    if (!text) {
+      el.className = "alert d-none";
+      el.innerHTML = "";
+    } else {
+      var alertClass = "alert-info";
+      if (type === "error") alertClass = "alert-danger";
+      else if (type === "success") alertClass = "alert-success";
+      el.className =
+        "alert " +
+        alertClass +
+        " d-flex align-items-center justify-content-between mb-3";
+      el.innerHTML =
+        '<div class="d-flex align-items-center gap-2 flex-grow-1 text-break pe-2">' +
+        '<span class="fw-bold" style="font-size: 0.9rem;">' +
+        escapeHtml(text) +
+        "</span>" +
+        "</div>" +
+        '<button type="button" class="btn-close-custom ms-2 flex-shrink-0" title="Dismiss">✕</button>';
+      var closeBtn = el.querySelector(".btn-close-custom");
+      if (closeBtn) {
+        closeBtn.onclick = function () {
+          el.classList.add("alert-closing");
+          setTimeout(function () {
+            el.className = "alert d-none";
+            el.innerHTML = "";
+          }, 190);
+        };
+      }
+    }
   }
-  var alertClass = "alert-info";
-  if (type === "error") alertClass = "alert-danger";
-  else if (type === "success") alertClass = "alert-success";
 
-  el.textContent = text;
-  el.className = "alert " + alertClass;
+    pushNotification(text, type);
+  }
+}
+
+function pushNotification(text, type) {
+  var tray = document.getElementById("upload-tray");
+  var msgBox = document.getElementById("notification-tray-messages");
+  var dot = document.getElementById("notification-unread-dot");
+  var emptyPlaceholder = document.getElementById("tray-empty-placeholder");
+
+  if (!msgBox) return;
+  msgBox.classList.remove("d-none");
+  if (emptyPlaceholder) emptyPlaceholder.classList.add("d-none");
+
+  var item = document.createElement("div");
+  var borderClass = type === "error" ? "text-danger border-danger" : (type === "success" ? "text-success border-success" : "text-dark border-dark");
+  item.className = "small p-1 px-2 mb-1 border rounded bg-light " + borderClass;
+  item.style.fontSize = "0.78rem";
+  item.textContent = (type === "error" ? "× " : "• ") + text;
+
+  msgBox.prepend(item);
+  while (msgBox.children.length > 5) {
+    msgBox.removeChild(msgBox.lastChild);
+  }
+
+  }
 }
 
 function formatBytes(bytes) {
@@ -48,3 +104,22 @@ function formatDate(isoStr) {
     return "";
   }
 }
+
+  var btn = e.target.closest(".toggle-pw-btn, #toggle-pass-visibility, #toggle-admin-pass-visibility");
+  if (!btn) return;
+  e.preventDefault();
+  var targetId = btn.getAttribute("data-target");
+  var input = targetId
+    ? document.getElementById(targetId)
+    : (btn.previousElementSibling || (btn.closest(".input-group") ? btn.closest(".input-group").querySelector("input") : null));
+  if (!input) return;
+  if (input.type === "password") {
+    input.type = "text";
+    btn.textContent = "○";
+    btn.title = "Hide password";
+  } else {
+    input.type = "password";
+    btn.textContent = "◉";
+    btn.title = "Show password";
+  }
+});

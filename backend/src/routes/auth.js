@@ -4,6 +4,7 @@ const bcrypt = require("bcrypt");
 const { pool } = require("../db");
 const { encrypt, decrypt } = require("../crypto");
 const { deleteObject } = require("../storage");
+const { getClientIp, checkCooldown, recordFailedAttempt, clearCooldown } = require("../ratelimit");
 
 const router = Router();
 
@@ -100,16 +101,49 @@ router.post("/login", async (req, res) => {
 
     const cleanUser = username.trim();
     const uHash = hashUsername(cleanUser);
+    const clientIp = getClientIp(req);
+    const attemptKey = `user:${clientIp}:${uHash}`;
+
+    const cooldown = await checkCooldown(attemptKey);
+    if (cooldown.locked) {
+      res.setHeader("Retry-After", cooldown.retryAfterSeconds);
+      return res.status(429).json({
+        error: `Too many failed attempts. Try again in ${cooldown.retryAfterSeconds}s.`,
+        retryAfter: cooldown.retryAfterSeconds,
+      });
+    }
 
     let result = await pool.query("SELECT * FROM users WHERE username_hash = $1", [uHash]);
     if (result.rows.length === 0) {
       result = await pool.query("SELECT * FROM users WHERE username = $1", [cleanUser]);
     }
-    if (result.rows.length === 0) return res.status(401).json({ error: "Invalid credentials" });
+    if (result.rows.length === 0) {
+      const lockStatus = await recordFailedAttempt(attemptKey);
+      if (lockStatus.locked) {
+        res.setHeader("Retry-After", lockStatus.retryAfterSeconds);
+        return res.status(429).json({
+          error: `Too many failed attempts. Try again in ${lockStatus.retryAfterSeconds}s.`,
+          retryAfter: lockStatus.retryAfterSeconds,
+        });
+      }
+      return res.status(401).json({ error: "Invalid credentials" });
+    }
 
     const user = result.rows[0];
     const valid = await bcrypt.compare(password, user.password);
-    if (!valid) return res.status(401).json({ error: "Invalid credentials" });
+    if (!valid) {
+      const lockStatus = await recordFailedAttempt(attemptKey);
+      if (lockStatus.locked) {
+        res.setHeader("Retry-After", lockStatus.retryAfterSeconds);
+        return res.status(429).json({
+          error: `Too many failed attempts. Try again in ${lockStatus.retryAfterSeconds}s.`,
+          retryAfter: lockStatus.retryAfterSeconds,
+        });
+      }
+      return res.status(401).json({ error: "Invalid credentials" });
+    }
+
+    await clearCooldown(attemptKey);
 
     let displayUsername = cleanUser;
     if (user.encrypted_username) {
@@ -143,6 +177,7 @@ router.post("/logout", (req, res) => {
   });
 });
 
+
 // i know for a fact this isnt sufficient but i cant remember why
 router.get("/me", (req, res) => {
   if (!req.session.userId) return res.status(401).json({ error: "Not authenticated" });
@@ -159,13 +194,35 @@ router.post("/change-password", requireAuth, async (req, res) => {
       return res.status(400).json({ error: "New password must be at least 8 characters" });
     }
 
+    const attemptKey = `pwchange:${req.session.userId}`;
+    const cooldown = await checkCooldown(attemptKey);
+    if (cooldown.locked) {
+      res.setHeader("Retry-After", cooldown.retryAfterSeconds);
+      return res.status(429).json({
+        error: `Too many failed attempts. Try again in ${cooldown.retryAfterSeconds}s.`,
+        retryAfter: cooldown.retryAfterSeconds,
+      });
+    }
+
     const userQ = await pool.query("SELECT password FROM users WHERE id = $1", [
       req.session.userId,
     ]);
     if (userQ.rows.length === 0) return res.status(404).json({ error: "User not found" });
 
     const valid = await bcrypt.compare(currentPassword, userQ.rows[0].password);
-    if (!valid) return res.status(401).json({ error: "Current password is incorrect" });
+    if (!valid) {
+      const lockStatus = await recordFailedAttempt(attemptKey);
+      if (lockStatus.locked) {
+        res.setHeader("Retry-After", lockStatus.retryAfterSeconds);
+        return res.status(429).json({
+          error: `Too many failed attempts. Cooldown active for ${lockStatus.retryAfterSeconds}s.`,
+          retryAfter: lockStatus.retryAfterSeconds,
+        });
+      }
+      return res.status(401).json({ error: "Current password is incorrect" });
+    }
+
+    await clearCooldown(attemptKey);
 
     const hash = await bcrypt.hash(newPassword, 12);
     await pool.query("UPDATE users SET password = $1 WHERE id = $2", [hash, req.session.userId]);
@@ -184,13 +241,35 @@ router.delete("/account", requireAuth, async (req, res) => {
       return res.status(400).json({ error: "Password confirmation required to delete account" });
     }
 
+    const attemptKey = `pwdelete:${req.session.userId}`;
+    const cooldown = await checkCooldown(attemptKey);
+    if (cooldown.locked) {
+      res.setHeader("Retry-After", cooldown.retryAfterSeconds);
+      return res.status(429).json({
+        error: `Too many failed attempts. Cooldown active. Please wait ${cooldown.retryAfterSeconds}s.`,
+        retryAfter: cooldown.retryAfterSeconds,
+      });
+    }
+
     const userQ = await pool.query("SELECT password FROM users WHERE id = $1", [
       req.session.userId,
     ]);
     if (userQ.rows.length === 0) return res.status(404).json({ error: "User not found" });
 
     const valid = await bcrypt.compare(password, userQ.rows[0].password);
-    if (!valid) return res.status(401).json({ error: "Password is incorrect" });
+    if (!valid) {
+      const lockStatus = await recordFailedAttempt(attemptKey);
+      if (lockStatus.locked) {
+        res.setHeader("Retry-After", lockStatus.retryAfterSeconds);
+        return res.status(429).json({
+          error: `Too many failed attempts. Cooldown active for ${lockStatus.retryAfterSeconds}s.`,
+          retryAfter: lockStatus.retryAfterSeconds,
+        });
+      }
+      return res.status(401).json({ error: "Password is incorrect" });
+    }
+
+    await clearCooldown(attemptKey);
 
     const filesQ = await pool.query("SELECT storage_key FROM files WHERE owner_id = $1", [
       req.session.userId,

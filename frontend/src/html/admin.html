@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>PinkBox ❤︎ | Admin Panel</title>
     <link rel="stylesheet" href="/src/css/bootstrap.min.css" />
-    <link rel="stylesheet" href="/src/css/style.css?v=7" />
+    <link rel="stylesheet" href="/src/css/style.css" />
   </head>
   <body>
     
@@ -44,13 +44,24 @@
                 </div>
                 <div class="mb-3">
                   <label class="form-label small fw-bold">Admin Password</label>
-                  <input
-                    type="password"
-                    id="admin-pass-input"
-                    class="form-control"
-                    required
-                    autocomplete="current-password"
-                  />
+                  <div class="input-group">
+                    <input
+                      type="password"
+                      id="admin-pass-input"
+                      class="form-control border-dark"
+                      required
+                      autocomplete="current-password"
+                    />
+                    <button
+                      class="btn btn-white border-dark toggle-pw-btn"
+                      type="button"
+                      id="toggle-admin-pass-visibility"
+                      data-target="admin-pass-input"
+                      title="Toggle password visibility"
+                    >
+                      &#x25C9;
+                    </button>
+                  </div>
                 </div>
                 <button type="submit" class="btn btn-primary w-100 py-2">Login</button>
               </form>
@@ -148,9 +159,11 @@
             <h5 class="modal-title fw-bold">Confirm Account Deletion</h5>
             <button
               type="button"
-              class="btn-close btn-close-white"
+              class="btn-close-custom ms-auto"
               data-bs-dismiss="modal"
-            ></button>
+              aria-label="Close"
+              title="Close"
+            >✕</button>
           </div>
           <div class="modal-body">
             <p class="text-danger fw-bold mb-2">
@@ -168,7 +181,7 @@
     </div>
 
     <script src="/src/js/bootstrap.bundle.min.js"></script>
-    <script src="/src/js/common.js?v=6"></script>
-    <script src="/src/js/admin.js?v=6"></script>
+    <script src="/src/js/common.js"></script>
+    <script src="/src/js/admin.js"></script>
   </body>
 </html>

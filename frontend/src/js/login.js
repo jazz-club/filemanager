@@ -73,6 +73,34 @@ function setMode(newMode) {
   }
 }
 
+var cooldownTimer = null;
+function startCooldown(seconds) {
+  if (cooldownTimer) clearInterval(cooldownTimer);
+  var remaining = parseInt(seconds, 10) || 30;
+  submitBtn.disabled = true;
+  userInput.disabled = true;
+  passInput.disabled = true;
+
+  function update() {
+    if (remaining <= 0) {
+      clearInterval(cooldownTimer);
+      cooldownTimer = null;
+      submitBtn.disabled = false;
+      userInput.disabled = false;
+      passInput.disabled = false;
+      submitBtn.textContent = mode === "login" ? "Log In" : "Create Account";
+      showMsg("Ratelimit refreshed.", "success");
+      return;
+    }
+    submitBtn.textContent = "Cooldown (" + remaining + "s)";
+    showMsg("Too many attempts. Try again in: " + remaining + "s remaining.", "error");
+    remaining--;
+  }
+
+  update();
+  cooldownTimer = setInterval(update, 1000);
+}
+
 authForm.onsubmit = function (e) {
   e.preventDefault();
   if (mode === "register" && !allowRegistration) {
@@ -94,15 +122,20 @@ authForm.onsubmit = function (e) {
   })
     .then(function (r) {
       return r.json().then(function (data) {
-        return { ok: r.ok, data: data };
+        return { ok: r.ok, status: r.status, data: data };
       });
     })
     .then(function (res) {
-      submitBtn.disabled = false;
       if (!res.ok) {
+        if (res.status === 429 || (res.data && res.data.retryAfter)) {
+          startCooldown(res.data.retryAfter || 30);
+          return;
+        }
+        submitBtn.disabled = false;
         showMsg(res.data.error || "auth failed", "error");
         return;
       }
+      submitBtn.disabled = false;
       window.location.href = "/vault";
     })
     .catch(function (err) {

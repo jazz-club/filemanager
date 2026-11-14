@@ -12,6 +12,66 @@ const upload = multer({
   limits: { fileSize: 5120 * 1024 * 1024 },
 });
 
+// TODO decrpyt preview buffers
+const previewCache = new Map();
+const MAX_CACHE_BYTES = 256 * 1024 * 1024; 
+let currentCacheBytes = 0;
+
+function invalidatePreviewCache(fileId) {
+  const strId = String(fileId);
+  const entry = previewCache.get(strId);
+  if (entry) {
+    clearTimeout(entry.timer);
+    currentCacheBytes -= entry.buffer.length;
+    previewCache.delete(strId);
+  }
+}
+
+function getCachedPreview(fileId) {
+  const strId = String(fileId);
+  const entry = previewCache.get(strId);
+  if (entry) {
+    entry.lastAccess = Date.now();
+    clearTimeout(entry.timer);
+    entry.timer = setTimeout(() => {
+      invalidatePreviewCache(strId);
+    }, 180000); // 3 minutes TTL
+    return entry.buffer;
+  }
+  return null;
+}
+
+function setCachedPreview(fileId, buffer) {
+  const strId = String(fileId);
+  if (buffer.length > 150 * 1024 * 1024) return; // marvel rivals videos gfn
+
+  while (currentCacheBytes + buffer.length > MAX_CACHE_BYTES && previewCache.size > 0) {
+    let oldestKey = null;
+    let oldestTime = Infinity;
+    for (const [k, v] of previewCache.entries()) {
+      if (v.lastAccess < oldestTime) {
+        oldestTime = v.lastAccess;
+        oldestKey = k;
+      }
+    }
+    if (oldestKey) {
+      invalidatePreviewCache(oldestKey);
+    } else {
+      break;
+    }
+  }
+
+  const entry = {
+    buffer,
+    lastAccess: Date.now(),
+    timer: setTimeout(() => {
+      invalidatePreviewCache(strId);
+    }, 180000),
+  };
+  currentCacheBytes += buffer.length;
+  previewCache.set(strId, entry);
+}
+
 function requireAuth(req, res, next) {
   if (!req.session.userId) return res.status(401).json({ error: "Not authenticated" });
   next();
@@ -130,6 +190,7 @@ router.post("/batch/delete", requireAuth, async (req, res) => {
           console.error("Storage delete err:", f.storage_key, e);
         }
       }
+      fileIds.forEach((id) => invalidatePreviewCache(id));
       await pool.query("DELETE FROM files WHERE id = ANY($1) AND owner_id = $2", [
         fileIds,
         req.session.userId,
@@ -529,42 +590,69 @@ router.get("/:id/metadata", requireAuth, async (req, res) => {
 
 router.get("/:id/preview", requireAuth, async (req, res) => {
   try {
-    const result = await pool.query("SELECT * FROM files WHERE id = $1 AND owner_id = $2", [
-      req.params.id,
-      req.session.userId,
-    ]);
+    const fileId = req.params.id;
+    const result = await pool.query(
+      "SELECT id, owner_id, original_name, mime_type, size_bytes, storage_key FROM files WHERE id = $1 AND owner_id = $2",
+      [fileId, req.session.userId]
+    );
     if (result.rows.length === 0) return res.status(404).json({ error: "File not found" });
 
     const file = result.rows[0];
-    const blob = await getObject(file.storage_key);
-    const plaintext = decrypt(blob);
+    let plaintext = getCachedPreview(file.id);
+
+    if (!plaintext) {
+      const blob = await getObject(file.storage_key);
+      plaintext = decrypt(blob);
+      setCachedPreview(file.id, plaintext);
+    }
+
     const totalSize = plaintext.length;
+    const etag = `"${file.id}-${totalSize}"`;
+
+    res.set({
+      "ETag": etag,
+      "Cache-Control": "private, max-age=86400, stale-while-revalidate=3600",
+      "Accept-Ranges": "bytes",
+    });
 
     const range = req.headers.range;
     if (range) {
-      const parts = range.replace(/bytes=/, "").split("-");
-      const start = parseInt(parts[0], 10);
-      const end = parts[1] ? parseInt(parts[1], 10) : totalSize - 1;
+      const match = range.match(/bytes=(\d*)-(\d*)/);
+      if (match) {
+        let start;
+        let end;
 
-      if (start >= totalSize || end >= totalSize) {
-        res.status(416).set("Content-Range", `bytes */${totalSize}`).end();
+        if (match[1] === "" && match[2] !== "") {
+          const suffix = parseInt(match[2], 10);
+          start = Math.max(0, totalSize - suffix);
+          end = totalSize - 1;
+        } else {
+          start = parseInt(match[1], 10);
+          end = match[2] ? parseInt(match[2], 10) : totalSize - 1;
+        }
+
+        if (isNaN(start) || isNaN(end) || start >= totalSize || end >= totalSize || start > end) {
+          res.status(416).set("Content-Range", `bytes */${totalSize}`).end();
+          return;
+        }
+
+        const chunk = plaintext.subarray(start, end + 1);
+        res.status(206);
+        res.set({
+          "Content-Range": `bytes ${start}-${end}/${totalSize}`,
+          "Content-Length": chunk.length,
+          "Content-Type": file.mime_type || "application/octet-stream",
+        });
+        res.send(chunk);
         return;
       }
-
-      const chunk = plaintext.subarray(start, end + 1);
-      res.status(206);
-      res.set({
-        "Content-Range": `bytes ${start}-${end}/${totalSize}`,
-        "Accept-Ranges": "bytes",
-        "Content-Length": chunk.length,
-        "Content-Type": file.mime_type || "application/octet-stream",
-      });
-      res.send(chunk);
     } else {
+      if (req.headers["if-none-match"] === etag) {
+        return res.status(304).end();
+      }
       res.set({
         "Content-Type": file.mime_type || "application/octet-stream",
         "Content-Length": totalSize,
-        "Accept-Ranges": "bytes",
         "Content-Disposition": `inline; filename="${file.original_name.replace(/["\r\n]/g, "_")}"`,
       });
       res.send(plaintext);
@@ -609,6 +697,7 @@ router.delete("/:id", requireAuth, async (req, res) => {
     );
     if (result.rows.length === 0) return res.status(404).json({ error: "File not found" });
 
+    invalidatePreviewCache(req.params.id);
     await deleteObject(result.rows[0].storage_key);
     await pool.query("DELETE FROM files WHERE id = $1", [req.params.id]);
     res.json({ message: "File permanently deleted" });

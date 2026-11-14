@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>PinkBox ❤︎ | Log In</title>
     <link rel="stylesheet" href="/src/css/bootstrap.min.css" />
-    <link rel="stylesheet" href="/src/css/style.css?v=6" />
+    <link rel="stylesheet" href="/src/css/style.css" />
   </head>
   <body>
     <div class="container py-5">
@@ -50,14 +50,25 @@
                     class="form-label small text-muted text-uppercase fw-semibold"
                     >Password</label
                   >
-                  <input
-                    type="password"
-                    class="form-control"
-                    id="pass-input"
-                    placeholder="••••••••"
-                    required
-                    autocomplete="current-password"
-                  />
+                  <div class="input-group">
+                    <input
+                      type="password"
+                      class="form-control"
+                      id="pass-input"
+                      placeholder="••••••••"
+                      required
+                      autocomplete="current-password"
+                    />
+                    <button
+                      class="btn btn-white border-dark toggle-pw-btn"
+                      type="button"
+                      id="toggle-pass-visibility"
+                      data-target="pass-input"
+                      title="Show password"
+                    >
+                      &#x25C9;
+                    </button>
+                  </div>
                   <div id="help-text" class="form-text text-muted d-none">
                     Password must be at least 8 characters.
                   </div>
@@ -76,7 +87,7 @@
     </div>
 
     <script src="/src/js/bootstrap.bundle.min.js"></script>
-    <script src="/src/js/common.js?v=6"></script>
-    <script src="/src/js/login.js?v=6"></script>
+    <script src="/src/js/common.js"></script>
+    <script src="/src/js/login.js"></script>
   </body>
 </html>

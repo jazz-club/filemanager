@@ -61,6 +61,15 @@ async function initDB() {
 
     INSERT INTO system_settings (key, value) VALUES ('allow_registration', 'true')
     ON CONFLICT (key) DO NOTHING;
+
+    CREATE TABLE IF NOT EXISTS login_attempts (
+      identifier VARCHAR(255) PRIMARY KEY,
+      failed_count INTEGER NOT NULL DEFAULT 0,
+      first_failed_at TIMESTAMPTZ DEFAULT NOW(),
+      last_failed_at TIMESTAMPTZ DEFAULT NOW(),
+      locked_until TIMESTAMPTZ
+    );
+    CREATE INDEX IF NOT EXISTS idx_login_attempts_locked ON login_attempts (locked_until);
   `);
 
   try {

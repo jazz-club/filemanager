@@ -39,6 +39,39 @@ function checkAdminAuth() {
     });
 }
 
+var adminCooldownTimer = null;
+function startAdminCooldown(seconds) {
+  if (adminCooldownTimer) clearInterval(adminCooldownTimer);
+  var remaining = parseInt(seconds, 10) || 30;
+  var adminSubmitBtn = loginForm.querySelector("button[type='submit']");
+  if (adminSubmitBtn) adminSubmitBtn.disabled = true;
+  userInput.disabled = true;
+  passInput.disabled = true;
+
+  function update() {
+    if (remaining <= 0) {
+      clearInterval(adminCooldownTimer);
+      adminCooldownTimer = null;
+      if (adminSubmitBtn) {
+        adminSubmitBtn.disabled = false;
+        adminSubmitBtn.textContent = "Log In as Admin";
+      }
+      userInput.disabled = false;
+      passInput.disabled = false;
+      showAdminMsg("Ratelimit reset.", "success");
+      return;
+    }
+    if (adminSubmitBtn) {
+      adminSubmitBtn.textContent = "Cooldown (" + remaining + "s)";
+    }
+    showAdminMsg("Too many failed attempts. Try again in: " + remaining + "s remaining.", "error");
+    remaining--;
+  }
+
+  update();
+  adminCooldownTimer = setInterval(update, 1000);
+}
+
 loginForm.onsubmit = function (e) {
   e.preventDefault();
   var u = userInput.value.trim();
@@ -52,7 +85,12 @@ loginForm.onsubmit = function (e) {
   })
     .then(function (r) {
       return r.json().then(function (data) {
-        if (!r.ok) throw new Error(data.error || "Login failed");
+        if (!r.ok) {
+          var err = new Error(data.error || "Login failed");
+          err.retryAfter = data.retryAfter;
+          err.status = r.status;
+          throw err;
+        }
         return data;
       });
     })
@@ -61,7 +99,11 @@ loginForm.onsubmit = function (e) {
       checkAdminAuth();
     })
     .catch(function (err) {
-      showAdminMsg(err.message, "error");
+      if (err.status === 429 || err.retryAfter) {
+        startAdminCooldown(err.retryAfter || 30);
+      } else {
+        showAdminMsg(err.message, "error");
+      }
     });
 };
 
@@ -125,7 +167,7 @@ function loadAdminSettings() {
     })
     .then(function (s) {
       updateRegistrationUI(!!s.allowRegistration);
-    })
+    }) // holy shit ecco2k
     .catch(function (e) {
       console.error("Settings load err:", e);
     });
