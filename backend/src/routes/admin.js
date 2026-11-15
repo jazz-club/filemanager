@@ -2,11 +2,21 @@ const { Router } = require("express");
 const { pool } = require("../db");
 const { deleteObject } = require("../storage");
 const { getClientIp, checkCooldown, recordFailedAttempt, clearCooldown } = require("../ratelimit");
+const logger = require("../logger");
+const { generateCsrfToken } = require("../csrf");
 
 const router = Router();
 
 function requireAdmin(req, res, next) {
   if (!req.session || !req.session.isAdmin) {
+    logger.audit({
+      event: "SECURITY_UNAUTHORIZED_ADMIN_ACCESS",
+      req,
+      outcome: "REJECTED",
+      level: "WARN",
+      statusCode: 401,
+      details: { path: req.originalUrl || req.url },
+    });
     return res.status(401).json({ error: "Admin authentication required" });
   }
   next();
@@ -27,6 +37,14 @@ router.post("/login", async (req, res) => {
   const cooldown = await checkCooldown(attemptKey);
   if (cooldown.locked) {
     res.setHeader("Retry-After", cooldown.retryAfterSeconds);
+    logger.audit({
+      event: "ADMIN_LOCKOUT",
+      req,
+      outcome: "BLOCKED",
+      level: "WARN",
+      statusCode: 429,
+      details: { retryAfterSeconds: cooldown.retryAfterSeconds },
+    });
     return res.status(429).json({
       error: `ey man wat da hell at least wait ${cooldown.retryAfterSeconds}s.`,
       retryAfter: cooldown.retryAfterSeconds,
@@ -39,10 +57,39 @@ router.post("/login", async (req, res) => {
       if (err) return res.status(500).json({ error: "Session creation error" });
       req.session.isAdmin = true;
       req.session.adminUser = adminUser;
-      res.json({ message: "Admin authenticated", admin: adminUser });
+      req.session.csrfToken = generateCsrfToken();
+
+      res.cookie("XSRF-TOKEN", req.session.csrfToken, {
+        sameSite: "strict",
+        secure: true,
+        httpOnly: false,
+        path: "/",
+      });
+
+      logger.audit({
+        event: "ADMIN_LOGIN_SUCCESS",
+        req,
+        outcome: "SUCCESS",
+        statusCode: 200,
+        details: { admin: adminUser },
+      });
+
+      res.json({
+        message: "Admin authenticated",
+        admin: adminUser,
+        csrfToken: req.session.csrfToken,
+      });
     });
   } else {
     const lockStatus = await recordFailedAttempt(attemptKey);
+    logger.audit({
+      event: "ADMIN_LOGIN_FAILURE",
+      req,
+      outcome: "FAILURE",
+      level: "WARN",
+      statusCode: 401,
+      details: { attemptedUser: username },
+    });
     if (lockStatus.locked) {
       res.setHeader("Retry-After", lockStatus.retryAfterSeconds);
       return res.status(429).json({

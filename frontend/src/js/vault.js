@@ -201,6 +201,14 @@ function startZipDownloadTask(url, zipName, displayTitle, fetchOptions) {
   var barEl = row.querySelector(".progress-bar");
 
   var opts = fetchOptions || { method: "GET" };
+  opts.credentials = "include";
+  opts.headers = opts.headers || {};
+  var token = getCsrfToken();
+  if (token && (opts.method || "GET").toUpperCase() === "POST") {
+    if (!opts.headers["X-CSRF-Token"]) {
+      opts.headers["X-CSRF-Token"] = token;
+    }
+  }
 
   fetch(url, opts)
     .then(function (res) {
@@ -2671,7 +2679,7 @@ videoPlayerEl.addEventListener("timeupdate", function () {
   }
 });
 
-// Audio Mini-Pill Controls
+// TODO add the rest of controls to the minipill
 var audioDockMinimizeBtn = document.getElementById("audio-dock-minimize");
 var audioMiniPill = document.getElementById("audio-mini-pill");
 var audioMiniTitle = document.getElementById("audio-mini-title");
@@ -2895,11 +2903,18 @@ function processUploadQueue() {
   if (nextItem.targetFolderId) {
     fd.append("folderId", nextItem.targetFolderId);
   }
+  var uploadCsrfToken = getCsrfToken();
+  if (uploadCsrfToken) {
+    fd.append("csrfToken", uploadCsrfToken);
+  }
 
   var xhr = new XMLHttpRequest();
   nextItem.xhr = xhr;
   xhr.open("POST", "/api/files", true);
   xhr.withCredentials = true;
+  if (uploadCsrfToken) {
+    xhr.setRequestHeader("X-CSRF-Token", uploadCsrfToken);
+  }
 
   xhr.upload.onprogress = function (evt) {
     if (evt.lengthComputable) {

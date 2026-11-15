@@ -1,10 +1,63 @@
+function getCookie(name) {
+  var match = document.cookie.match(new RegExp("(^|;\\s*)(" + name + ")=([^;]*)"));
+  return match ? decodeURIComponent(match[3]) : null;
+}
+
+var currentCsrfToken = null;
+
+function getCsrfToken() {
+  if (currentCsrfToken) return currentCsrfToken;
+  var fromCookie = getCookie("XSRF-TOKEN");
+  if (fromCookie) {
+    currentCsrfToken = fromCookie;
+    return currentCsrfToken;
+  }
+  return null;
+}
+
+function fetchCsrfToken() {
+  return fetch("/api/auth/csrf", { credentials: "include" })
+    .then(function (r) {
+      return r.json();
+    })
+    .then(function (d) {
+      if (d && d.csrfToken) {
+        currentCsrfToken = d.csrfToken;
+        document.querySelectorAll("input[name='csrfToken'], input[name='_csrf']").forEach(function (inp) {
+          inp.value = d.csrfToken;
+        });
+      }
+      return currentCsrfToken;
+    })
+    .catch(function () {
+      return null;
+    });
+}
+
+if (typeof document !== "undefined") {
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", fetchCsrfToken);
+  } else {
+    fetchCsrfToken();
+  }
+}
+
 function api(path, opts) {
   opts = opts || {};
   opts.credentials = "include";
   opts.headers = opts.headers || {};
+  var method = (opts.method || "GET").toUpperCase();
   if (opts.body && typeof opts.body === "string" && !opts.headers["Content-Type"]) {
     opts.headers["Content-Type"] = "application/json";
   }
+
+  var token = getCsrfToken();
+  if (token && ["POST", "PUT", "PATCH", "DELETE"].indexOf(method) !== -1) {
+    if (!opts.headers["X-CSRF-Token"] && !opts.headers["x-csrf-token"]) {
+      opts.headers["X-CSRF-Token"] = token;
+    }
+  }
+
   return fetch("/api" + path, opts);
 }
 

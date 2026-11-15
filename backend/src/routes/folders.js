@@ -1,11 +1,15 @@
 const { Router } = require("express");
+const path = require("path");
 const { pool } = require("../db");
 const { deleteObject } = require("../storage");
+const logger = require("../logger");
 
 const router = Router();
 
 function requireAuth(req, res, next) {
-  if (!req.session.userId) return res.status(401).json({ error: "Not authenticated" });
+  if (!req.session || !req.session.userId) {
+    return res.status(401).json({ error: "Not authenticated" });
+  }
   next();
 }
 
@@ -73,7 +77,8 @@ router.post("/", requireAuth, async (req, res) => {
       return res.status(400).json({ error: "Folder name is required" });
     }
 
-    const cleanName = name.trim().slice(0, 255);
+    const rawName = name.trim();
+    const cleanName = path.basename(rawName).replace(/[\x00-\x1F\x7F-\x9F]/g, "").slice(0, 255) || "unnamed_folder";
     const targetParentId = parentId ? parseInt(parentId, 10) : null;
 
     if (targetParentId) {
@@ -93,9 +98,18 @@ router.post("/", requireAuth, async (req, res) => {
       [req.session.userId, cleanName, targetParentId, "#ffffff"]
     );
 
+    logger.audit({
+      event: "FOLDER_CREATE_SUCCESS",
+      req,
+      userId: req.session.userId,
+      outcome: "SUCCESS",
+      statusCode: 201,
+      details: { folderId: result.rows[0].id, folderName: cleanName },
+    });
+
     res.status(201).json(result.rows[0]);
   } catch (err) {
-    console.error("Create folder error:", err);
+    logger.error("Create folder error", err);
     res.status(500).json({ error: "Failed to create folder" });
   }
 });
@@ -104,6 +118,9 @@ router.patch("/:id/color", requireAuth, async (req, res) => {
   try {
     const folderId = parseInt(req.params.id, 10);
     const { color } = req.body;
+    if (color && !/^#[0-9a-fA-F]{3,8}$/.test(color)) {
+      return res.status(400).json({ error: "Invalid hex color format" });
+    }
     const cleanColor = (color || "#ffffff").slice(0, 32);
 
     const result = await pool.query(
@@ -117,7 +134,7 @@ router.patch("/:id/color", requireAuth, async (req, res) => {
     if (result.rows.length === 0) return res.status(404).json({ error: "Folder not found" });
     res.json(result.rows[0]);
   } catch (err) {
-    console.error("Change folder color error:", err);
+    logger.error("Change folder color error", err);
     res.status(500).json({ error: "Failed to change folder color" });
   }
 });

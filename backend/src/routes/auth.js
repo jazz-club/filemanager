@@ -5,6 +5,8 @@ const { pool } = require("../db");
 const { encrypt, decrypt } = require("../crypto");
 const { deleteObject } = require("../storage");
 const { getClientIp, checkCooldown, recordFailedAttempt, clearCooldown } = require("../ratelimit");
+const logger = require("../logger");
+const { generateCsrfToken } = require("../csrf");
 
 const router = Router();
 
@@ -33,9 +35,35 @@ function decryptUsername(encBase64) {
 }
 
 function requireAuth(req, res, next) {
-  if (!req.session.userId) return res.status(401).json({ error: "Not authenticated" });
+  if (!req.session || !req.session.userId) {
+    logger.audit({
+      event: "SECURITY_UNAUTHENTICATED_ACCESS",
+      req,
+      outcome: "REJECTED",
+      level: "WARN",
+      statusCode: 401,
+      details: { path: req.originalUrl || req.url },
+    });
+    return res.status(401).json({ error: "Not authenticated" });
+  }
   next();
 }
+
+router.get("/csrf", (req, res) => {
+  if (!req.session) {
+    return res.status(500).json({ error: "Session unavailable" });
+  }
+  if (!req.session.csrfToken) {
+    req.session.csrfToken = generateCsrfToken();
+  }
+  res.cookie("XSRF-TOKEN", req.session.csrfToken, {
+    sameSite: "strict",
+    secure: true,
+    httpOnly: false,
+    path: "/",
+  });
+  res.json({ csrfToken: req.session.csrfToken });
+});
 
 router.get("/registration-status", async (req, res) => {
   try {
@@ -45,7 +73,7 @@ router.get("/registration-status", async (req, res) => {
     const allowed = q.rows.length === 0 || q.rows[0].value === "true";
     res.json({ allowRegistration: allowed });
   } catch (err) {
-    console.error("Registration status check error:", err);
+    logger.error("Registration status check error", err);
     res.json({ allowRegistration: true });
   }
 });
@@ -56,16 +84,25 @@ router.post("/register", async (req, res) => {
       "SELECT value FROM system_settings WHERE key = 'allow_registration'"
     );
     if (regCheck.rows.length > 0 && regCheck.rows[0].value !== "true") {
+      logger.audit({
+        event: "AUTH_REGISTER_DISABLED",
+        req,
+        outcome: "REJECTED",
+        level: "WARN",
+        statusCode: 403,
+      });
       return res.status(403).json({
         error: "Account creation is currently disabled.",
       });
     }
 
     const { username, password } = req.body;
-    if (!username || !password)
+    if (!username || !password) {
       return res.status(400).json({ error: "Username and password required" });
-    if (password.length < 8)
+    }
+    if (password.length < 8) {
       return res.status(400).json({ error: "Password must be at least 8 characters" });
+    }
 
     const cleanUser = username.trim();
     const uHash = hashUsername(cleanUser);
@@ -76,7 +113,17 @@ router.post("/register", async (req, res) => {
       "SELECT id FROM users WHERE username_hash = $1 OR username = $2",
       [uHash, cleanUser]
     );
-    if (existing.rows.length > 0) return res.status(409).json({ error: "Username already taken" });
+    if (existing.rows.length > 0) {
+      logger.audit({
+        event: "AUTH_REGISTER_CONFLICT",
+        req,
+        outcome: "REJECTED",
+        level: "INFO",
+        statusCode: 409,
+        details: { maskedUser: maskedName },
+      });
+      return res.status(409).json({ error: "Username already taken" });
+    }
 
     const passHash = await bcrypt.hash(password, 12);
     const result = await pool.query(
@@ -84,11 +131,42 @@ router.post("/register", async (req, res) => {
       [maskedName, passHash, uHash, encUser]
     );
 
-    req.session.userId = result.rows[0].id;
-    req.session.username = cleanUser;
-    res.status(201).json({ message: "Account created", user: cleanUser });
+    const newUserId = result.rows[0].id;
+
+    req.session.regenerate((err) => {
+      if (err) {
+        logger.error("session error during registration", err);
+        return res.status(500).json({ error: "Session creation error" });
+      }
+
+      req.session.userId = newUserId;
+      req.session.username = cleanUser;
+      req.session.csrfToken = generateCsrfToken();
+
+      res.cookie("XSRF-TOKEN", req.session.csrfToken, {
+        sameSite: "strict",
+        secure: true,
+        httpOnly: false,
+        path: "/",
+      });
+
+      logger.audit({
+        event: "AUTH_REGISTER_SUCCESS",
+        req,
+        userId: newUserId,
+        outcome: "SUCCESS",
+        statusCode: 201,
+        details: { maskedUser: maskedName },
+      });
+
+      res.status(201).json({
+        message: "Account created",
+        user: cleanUser,
+        csrfToken: req.session.csrfToken,
+      });
+    });
   } catch (err) {
-    console.error("Register error:", err);
+    logger.error("Register error", err);
     res.status(500).json({ error: "Internal server error" });
   }
 });
@@ -96,8 +174,9 @@ router.post("/register", async (req, res) => {
 router.post("/login", async (req, res) => {
   try {
     const { username, password } = req.body;
-    if (!username || !password)
+    if (!username || !password) {
       return res.status(400).json({ error: "Username or password missing" });
+    }
 
     const cleanUser = username.trim();
     const uHash = hashUsername(cleanUser);
@@ -107,6 +186,14 @@ router.post("/login", async (req, res) => {
     const cooldown = await checkCooldown(attemptKey);
     if (cooldown.locked) {
       res.setHeader("Retry-After", cooldown.retryAfterSeconds);
+      logger.audit({
+        event: "AUTH_LOCKOUT",
+        req,
+        outcome: "BLOCKED",
+        level: "WARN",
+        statusCode: 429,
+        details: { retryAfterSeconds: cooldown.retryAfterSeconds },
+      });
       return res.status(429).json({
         error: `Too many failed attempts. Try again in ${cooldown.retryAfterSeconds}s.`,
         retryAfter: cooldown.retryAfterSeconds,
@@ -117,8 +204,17 @@ router.post("/login", async (req, res) => {
     if (result.rows.length === 0) {
       result = await pool.query("SELECT * FROM users WHERE username = $1", [cleanUser]);
     }
+
     if (result.rows.length === 0) {
       const lockStatus = await recordFailedAttempt(attemptKey);
+      logger.audit({
+        event: "AUTH_LOGIN_FAILURE",
+        req,
+        outcome: "FAILURE",
+        level: "WARN",
+        statusCode: 401,
+        details: { reason: "user_not_found" },
+      });
       if (lockStatus.locked) {
         res.setHeader("Retry-After", lockStatus.retryAfterSeconds);
         return res.status(429).json({
@@ -133,6 +229,14 @@ router.post("/login", async (req, res) => {
     const valid = await bcrypt.compare(password, user.password);
     if (!valid) {
       const lockStatus = await recordFailedAttempt(attemptKey);
+      logger.audit({
+        event: "AUTH_LOGIN_FAILURE",
+        req,
+        outcome: "FAILURE",
+        level: "WARN",
+        statusCode: 401,
+        details: { reason: "password_mismatch" },
+      });
       if (lockStatus.locked) {
         res.setHeader("Retry-After", lockStatus.retryAfterSeconds);
         return res.status(429).json({
@@ -158,28 +262,66 @@ router.post("/login", async (req, res) => {
     }
 
     req.session.regenerate((err) => {
-      if (err) return res.status(500).json({ error: "Session error" });
+      if (err) {
+        logger.error("Session error on login", err);
+        return res.status(500).json({ error: "Session error" });
+      }
       req.session.userId = user.id;
       req.session.username = displayUsername;
-      res.json({ message: "Logged in", user: displayUsername });
+      req.session.csrfToken = generateCsrfToken();
+
+      res.cookie("XSRF-TOKEN", req.session.csrfToken, {
+        sameSite: "strict",
+        secure: true,
+        httpOnly: false,
+        path: "/",
+      });
+
+      logger.audit({
+        event: "AUTH_LOGIN_SUCCESS",
+        req,
+        userId: user.id,
+        outcome: "SUCCESS",
+        statusCode: 200,
+        details: { user: displayUsername },
+      });
+
+      res.json({
+        message: "Logged in",
+        user: displayUsername,
+        csrfToken: req.session.csrfToken,
+      });
     });
   } catch (err) {
-    console.error("Login error:", err);
+    logger.error("Login error", err);
     res.status(500).json({ error: "Internal server error" });
   }
 });
 
 router.post("/logout", (req, res) => {
+  const userId = req.session ? req.session.userId : null;
   req.session.destroy((err) => {
-    if (err) return res.status(500).json({ error: "Could not logout" });
+    if (err) {
+      logger.error("session destroy error", err);
+      return res.status(500).json({ error: "Could not logout" });
+    }
     res.clearCookie("connect.sid");
+    res.clearCookie("XSRF-TOKEN");
+    logger.audit({
+      event: "AUTH_LOGOUT",
+      userId,
+      outcome: "SUCCESS",
+      statusCode: 200,
+    });
     res.json({ message: "Logged out" });
   });
 });
 
 // i know for a fact this isnt sufficient but i cant remember why
 router.get("/me", (req, res) => {
-  if (!req.session.userId) return res.status(401).json({ error: "Not authenticated" });
+  if (!req.session || !req.session.userId) {
+    return res.status(401).json({ error: "Not authenticated" });
+  }
   res.json({ user: req.session.username });
 });
 
@@ -197,6 +339,15 @@ router.post("/change-password", requireAuth, async (req, res) => {
     const cooldown = await checkCooldown(attemptKey);
     if (cooldown.locked) {
       res.setHeader("Retry-After", cooldown.retryAfterSeconds);
+      logger.audit({
+        event: "AUTH_LOCKOUT",
+        req,
+        userId: req.session.userId,
+        outcome: "BLOCKED",
+        level: "WARN",
+        statusCode: 429,
+        details: { retryAfterSeconds: cooldown.retryAfterSeconds },
+      });
       return res.status(429).json({
         error: `Too many failed attempts. Try again in ${cooldown.retryAfterSeconds}s.`,
         retryAfter: cooldown.retryAfterSeconds,
@@ -211,6 +362,14 @@ router.post("/change-password", requireAuth, async (req, res) => {
     const valid = await bcrypt.compare(currentPassword, userQ.rows[0].password);
     if (!valid) {
       const lockStatus = await recordFailedAttempt(attemptKey);
+      logger.audit({
+        event: "AUTH_PASSWORD_CHANGE_FAILURE",
+        req,
+        userId: req.session.userId,
+        outcome: "FAILURE",
+        level: "WARN",
+        statusCode: 401,
+      });
       if (lockStatus.locked) {
         res.setHeader("Retry-After", lockStatus.retryAfterSeconds);
         return res.status(429).json({
@@ -226,9 +385,17 @@ router.post("/change-password", requireAuth, async (req, res) => {
     const hash = await bcrypt.hash(newPassword, 12);
     await pool.query("UPDATE users SET password = $1 WHERE id = $2", [hash, req.session.userId]);
 
+    logger.audit({
+      event: "AUTH_PASSWORD_CHANGE_SUCCESS",
+      req,
+      userId: req.session.userId,
+      outcome: "SUCCESS",
+      statusCode: 200,
+    });
+
     res.json({ message: "Password updated successfully" });
   } catch (err) {
-    console.error("Change password error:", err);
+    logger.error("Change password error", err);
     res.status(500).json({ error: "Failed to update password" });
   }
 });
@@ -258,6 +425,14 @@ router.delete("/account", requireAuth, async (req, res) => {
     const valid = await bcrypt.compare(password, userQ.rows[0].password);
     if (!valid) {
       const lockStatus = await recordFailedAttempt(attemptKey);
+      logger.audit({
+        event: "AUTH_ACCOUNT_DELETE_FAILURE",
+        req,
+        userId: req.session.userId,
+        outcome: "FAILURE",
+        level: "WARN",
+        statusCode: 401,
+      });
       if (lockStatus.locked) {
         res.setHeader("Retry-After", lockStatus.retryAfterSeconds);
         return res.status(429).json({
@@ -269,26 +444,35 @@ router.delete("/account", requireAuth, async (req, res) => {
     }
 
     await clearCooldown(attemptKey);
+    const userIdToDelete = req.session.userId;
 
     const filesQ = await pool.query("SELECT storage_key FROM files WHERE owner_id = $1", [
-      req.session.userId,
+      userIdToDelete,
     ]);
     for (const f of filesQ.rows) {
       try {
         await deleteObject(f.storage_key);
       } catch (e) {
-        console.error("Storage delete error for key:", f.storage_key, e);
+        logger.error("Storage delete error for key: " + f.storage_key, e);
       }
     }
 
-    await pool.query("DELETE FROM users WHERE id = $1", [req.session.userId]);
+    await pool.query("DELETE FROM users WHERE id = $1", [userIdToDelete]);
+
+    logger.audit({
+      event: "AUTH_ACCOUNT_DELETE_SUCCESS",
+      userId: userIdToDelete,
+      outcome: "SUCCESS",
+      statusCode: 200,
+    });
 
     req.session.destroy(() => {
       res.clearCookie("connect.sid");
+      res.clearCookie("XSRF-TOKEN");
       res.json({ message: "Account and all associated files deleted permanently" });
     });
   } catch (err) {
-    console.error("Delete account error:", err);
+    logger.error("Delete account error", err);
     res.status(500).json({ error: "Failed to delete account" });
   }
 });

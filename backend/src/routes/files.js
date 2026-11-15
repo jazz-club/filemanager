@@ -1,10 +1,12 @@
 const { Router } = require("express");
 const multer = require("multer");
 const crypto = require("crypto");
+const path = require("path");
 const { ZipArchive } = require("archiver");
 const { pool } = require("../db");
 const { encrypt, decrypt } = require("../crypto");
 const { putObject, getObject, deleteObject } = require("../storage");
+const logger = require("../logger");
 
 const router = Router();
 const upload = multer({
@@ -447,6 +449,10 @@ router.post(
     try {
       if (!req.file) return res.status(400).json({ error: "No file provided" });
 
+      const rawName = req.file.originalname || "unnamed_file";
+      const baseName = path.basename(rawName).replace(/[\x00-\x1F\x7F-\x9F]/g, "").trim();
+      const safeOriginalName = baseName.slice(0, 255) || "unnamed_file";
+
       const folderId = req.body.folderId ? parseInt(req.body.folderId, 10) : null;
       if (folderId) {
         const chk = await pool.query("SELECT id FROM folders WHERE id = $1 AND owner_id = $2", [
@@ -469,17 +475,33 @@ router.post(
        RETURNING id, original_name, size_bytes, mime_type, sha256, folder_id, uploaded_at`,
         [
           req.session.userId,
-          req.file.originalname,
+          safeOriginalName,
           storageKey,
           req.file.size,
-          req.file.mimetype,
+          req.file.mimetype || "application/octet-stream",
           sha256,
           folderId,
         ]
       );
+
+      logger.audit({
+        event: "FILE_UPLOAD_SUCCESS",
+        req,
+        userId: req.session.userId,
+        outcome: "SUCCESS",
+        statusCode: 201,
+        details: {
+          fileId: result.rows[0].id,
+          fileName: safeOriginalName,
+          sizeBytes: req.file.size,
+          mimeType: req.file.mimetype,
+          sha256,
+        },
+      });
+
       res.status(201).json(result.rows[0]);
     } catch (err) {
-      console.error(err);
+      logger.error("Upload error", err);
       res.status(500).json({ error: "Upload failed" });
     }
   }
@@ -642,6 +664,8 @@ router.get("/:id/preview", requireAuth, async (req, res) => {
           "Content-Range": `bytes ${start}-${end}/${totalSize}`,
           "Content-Length": chunk.length,
           "Content-Type": file.mime_type || "application/octet-stream",
+          "Content-Security-Policy": "default-src 'none'; sandbox",
+          "X-Content-Type-Options": "nosniff",
         });
         res.send(chunk);
         return;
@@ -654,11 +678,13 @@ router.get("/:id/preview", requireAuth, async (req, res) => {
         "Content-Type": file.mime_type || "application/octet-stream",
         "Content-Length": totalSize,
         "Content-Disposition": `inline; filename="${file.original_name.replace(/["\r\n]/g, "_")}"`,
+        "Content-Security-Policy": "default-src 'none'; sandbox",
+        "X-Content-Type-Options": "nosniff",
       });
       res.send(plaintext);
     }
   } catch (err) {
-    console.error("Preview/Stream error:", err);
+    logger.error("Preview/Stream error", err);
     res.status(500).json({ error: "Streaming preview failed" });
   }
 });
@@ -669,13 +695,39 @@ router.get("/:id", requireAuth, async (req, res) => {
       req.params.id,
       req.session.userId,
     ]);
-    if (result.rows.length === 0) return res.status(404).json({ error: "File not found" });
+    if (result.rows.length === 0) {
+      try {
+        const otherCheck = await pool.query("SELECT id FROM files WHERE id = $1", [req.params.id]);
+        if (otherCheck.rows.length > 0) {
+          logger.audit({
+            event: "SECURITY_ACCESS_DENIED",
+            req,
+            userId: req.session.userId,
+            outcome: "BLOCKED",
+            level: "WARN",
+            statusCode: 403,
+            details: { attemptedFileId: req.params.id, operation: "download" },
+          });
+        }
+      } catch (_) {}
+      return res.status(404).json({ error: "File not found" });
+    }
 
     const file = result.rows[0];
     const blob = await getObject(file.storage_key);
     const plaintext = decrypt(blob);
 
-    res.set("Content-Type", file.mime_type);
+    logger.audit({
+      event: "FILE_DOWNLOAD",
+      req,
+      userId: req.session.userId,
+      outcome: "SUCCESS",
+      statusCode: 200,
+      details: { fileId: file.id, fileName: file.original_name, sizeBytes: file.size_bytes },
+    });
+
+    res.set("Content-Type", file.mime_type || "application/octet-stream");
+    res.set("X-Content-Type-Options", "nosniff");
     const safeName = file.original_name.replace(/["\r\n]/g, "_");
     const encodedName = encodeURIComponent(file.original_name);
     res.set(
@@ -684,7 +736,7 @@ router.get("/:id", requireAuth, async (req, res) => {
     );
     res.send(plaintext);
   } catch (err) {
-    console.error(err);
+    logger.error("Download error", err);
     res.status(500).json({ error: "Download failed" });
   }
 });
@@ -695,14 +747,43 @@ router.delete("/:id", requireAuth, async (req, res) => {
       "SELECT storage_key FROM files WHERE id = $1 AND owner_id = $2",
       [req.params.id, req.session.userId]
     );
-    if (result.rows.length === 0) return res.status(404).json({ error: "File not found" });
+    if (result.rows.length === 0) {
+      try {
+        const otherCheck = await pool.query("SELECT id FROM files WHERE id = $1", [req.params.id]);
+        if (otherCheck.rows.length > 0) {
+          logger.audit({
+            event: "SECURITY_ACCESS_DENIED",
+            req,
+            userId: req.session.userId,
+            outcome: "BLOCKED",
+            level: "WARN",
+            statusCode: 403,
+            details: { attemptedFileId: req.params.id, operation: "delete" },
+          });
+        }
+      } catch (_) {}
+      return res.status(404).json({ error: "File not found" });
+    }
 
     invalidatePreviewCache(req.params.id);
     await deleteObject(result.rows[0].storage_key);
-    await pool.query("DELETE FROM files WHERE id = $1", [req.params.id]);
+    await pool.query("DELETE FROM files WHERE id = $1 AND owner_id = $2", [
+      req.params.id,
+      req.session.userId,
+    ]);
+
+    logger.audit({
+      event: "FILE_DELETE_SUCCESS",
+      req,
+      userId: req.session.userId,
+      outcome: "SUCCESS",
+      statusCode: 200,
+      details: { fileId: req.params.id },
+    });
+
     res.json({ message: "File permanently deleted" });
   } catch (err) {
-    console.error(err);
+    logger.error("Delete file error", err);
     res.status(500).json({ error: "Delete failed" });
   }
 });
