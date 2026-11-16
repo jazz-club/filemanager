@@ -11,13 +11,20 @@
 ## Backend
 
 **Node.js/Express**: The backend is an express 4.21 server 
+
 **Multer**: Used as a file upload processor library with buffering options for split uploads
+
 **Archiver**: Used only for serving archives of folders and the entire vault to the end user.
+
 **Helmet**: Used for middleware defense, might swap for custom implementations later.
+
 **PostgressSQL**: PostgressSQL is the easiest to implement storage method for most of the metadata, permissions, and other file related info.
 The backend will use node.js because I can't find the time to do fun stuff in life anymore.
+
 **MinIO**: MinIO will be the basis for storing encrypted objects, chosen mostly because of the S3 compatibility.
+
 **nginx**: There is no need for very specialised functionality beside reverse proxying and TLS, so nginx suffices as the most rational option for this project.
+
 **Docker**: All services will be configured as Docker containers, both for environment reasons, and also as an excuse to familiarise myself more with Docker as a professional tool.
 
 # Architecture
@@ -126,6 +133,7 @@ All endpoints require a valid session cookie and a valid CSRF token header.
 
 
 | Variable | Description | Default |
+| ----------- | ----------- | ----------- |
 | `NODE_ENV` | Current working enviroment | `development` |
 | `SESSION_SECRET` | 256-bit pseudorandom key| 64chr Hex |
 | `ENCRYPTION_SALT` | HMAC-SHA256 pseudonymization | 32chr Hex |
