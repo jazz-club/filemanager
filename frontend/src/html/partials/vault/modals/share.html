@@ -1,0 +1,241 @@
+<div class="modal fade" id="shareModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title fw-bold d-flex align-items-center gap-2">
+          <img
+            src="/src/assets/icons/lib/SVG/regular/globe.svg"
+            width="18"
+            height="18"
+            alt=""
+            style="object-fit: contain"
+          />
+          <span>Share File</span>
+        </h5>
+        <button
+          type="button"
+          class="btn-close-custom ms-auto"
+          data-bs-dismiss="modal"
+          aria-label="Close"
+          title="Close"
+        >
+          ✕
+        </button>
+      </div>
+      <div class="modal-body">
+        <div class="mb-3 p-2 bg-light rounded border border-dark d-flex align-items-center gap-2">
+          <span id="share-file-icon"></span>
+          <span class="fw-bold small text-truncate flex-grow-1" id="share-modal-filename"
+            >filename</span
+          >
+          <span
+            class="badge bg-secondary font-monospace"
+            id="share-modal-filesize"
+            style="font-size: 0.7rem"
+            >0 B</span
+          >
+        </div>
+        <div class="row g-2 mb-3">
+          <div class="col-6">
+            <div class="p-2 border rounded h-100">
+              <div class="small fw-bold mb-1">Access</div>
+              <div class="form-check mb-1">
+                <input
+                  class="form-check-input"
+                  type="radio"
+                  name="sharePermission"
+                  id="sharePermViewOnly"
+                  value="view"
+                  checked
+                />
+                <label class="form-check-label small" for="sharePermViewOnly"
+                  ><strong>View/Download</strong></label
+                >
+              </div>
+              <div class="form-check">
+                <input
+                  class="form-check-input"
+                  type="radio"
+                  name="sharePermission"
+                  id="sharePermEdit"
+                  value="edit"
+                />
+                <label class="form-check-label small" for="sharePermEdit"
+                  ><strong>Edit</strong></label
+                >
+              </div>
+            </div>
+          </div>
+          <div class="col-6">
+            <div class="p-2 border rounded h-100">
+              <div class="small fw-bold mb-1">Visibility</div>
+              <div class="form-check mb-1">
+                <input
+                  class="form-check-input"
+                  type="radio"
+                  name="shareVisibility"
+                  id="shareVisPublic"
+                  value="public"
+                  checked
+                />
+                <label class="form-check-label small" for="shareVisPublic"
+                  ><strong>Public</strong></label
+                >
+              </div>
+              <div class="form-check">
+                <input
+                  class="form-check-input"
+                  type="radio"
+                  name="shareVisibility"
+                  id="shareVisPrivate"
+                  value="private"
+                />
+                <label class="form-check-label small" for="shareVisPrivate"
+                  ><strong>Private</strong></label
+                >
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="mb-3">
+          <div class="form-check">
+            <input class="form-check-input" type="checkbox" id="share-limit-access" />
+            <label class="form-check-label small fw-bold" for="share-limit-access"
+              >Limit Access Times</label
+            >
+          </div>
+          <div id="share-limit-access-wrap" class="row g-2 mt-1 d-none">
+            <div class="col-6">
+              <label for="share-max-views" class="form-label small fw-bold mb-1"
+                >Maximum views</label
+              >
+              <input
+                id="share-max-views"
+                type="number"
+                class="form-control form-control-sm font-monospace share-limit-number-input"
+                min="1"
+                max="1000000000"
+                value="100"
+              />
+            </div>
+            <div class="col-6">
+              <label for="share-max-downloads" class="form-label small fw-bold mb-1"
+                >Maximum downloads</label
+              >
+              <input
+                id="share-max-downloads"
+                type="number"
+                class="form-control form-control-sm font-monospace share-limit-number-input"
+                min="1"
+                max="1000000000"
+                value="100"
+              />
+            </div>
+          </div>
+        </div>
+        <div class="mb-3">
+          <div class="small fw-bold mb-1">Expiry</div>
+          <div class="d-flex flex-wrap gap-1" id="share-expiry-pills">
+            <button type="button" class="btn btn-sm share-expiry-pill active" data-minutes="0">
+              Never
+            </button>
+            <button type="button" class="btn btn-sm share-expiry-pill" data-minutes="60">1h</button>
+            <button type="button" class="btn btn-sm share-expiry-pill" data-minutes="480">
+              8h
+            </button>
+            <button type="button" class="btn btn-sm share-expiry-pill" data-minutes="1440">
+              24h
+            </button>
+            <button type="button" class="btn btn-sm share-expiry-pill" data-minutes="10080">
+              7d
+            </button>
+            <button type="button" class="btn btn-sm share-expiry-pill" data-minutes="43200">
+              30d
+            </button>
+            <button type="button" class="btn btn-sm share-expiry-pill" data-minutes="custom">
+              Custom
+            </button>
+          </div>
+          <div id="share-expiry-custom-wrap" class="mt-3 d-none">
+            <div class="d-flex align-items-center gap-2 flex-wrap mb-1">
+              <div class="d-flex flex-column align-items-center">
+                <input
+                  type="number"
+                  id="share-expiry-days"
+                  class="form-control form-control-sm font-monospace text-center"
+                  min="0"
+                  max="365"
+                  value="0"
+                  style="width: 68px"
+                />
+                <span class="small text-muted" style="font-size: 0.68rem">days</span>
+              </div>
+              <span class="fw-bold text-muted" style="line-height: 2rem">:</span>
+              <div class="d-flex flex-column align-items-center">
+                <input
+                  type="number"
+                  id="share-expiry-hours"
+                  class="form-control form-control-sm font-monospace text-center"
+                  min="0"
+                  max="23"
+                  value="0"
+                  style="width: 68px"
+                />
+                <span class="small text-muted" style="font-size: 0.68rem">hours</span>
+              </div>
+              <span class="fw-bold text-muted" style="line-height: 2rem">:</span>
+              <div class="d-flex flex-column align-items-center">
+                <input
+                  type="number"
+                  id="share-expiry-minutes"
+                  class="form-control form-control-sm font-monospace text-center"
+                  min="0"
+                  max="59"
+                  value="0"
+                  style="width: 68px"
+                />
+                <span class="small text-muted" style="font-size: 0.68rem">mins</span>
+              </div>
+            </div>
+            <div id="share-expiry-preview" class="d-none"></div>
+          </div>
+        </div>
+        <div class="d-grid mb-3">
+          <button
+            type="button"
+            class="btn btn-primary d-flex align-items-center justify-content-center gap-2"
+            id="create-share-link-btn"
+          >
+            <img
+              src="/src/assets/icons/lib/SVG/regular/plus.svg"
+              width="14"
+              height="14"
+              alt=""
+              style="object-fit: contain"
+            />
+            <span>Create Share Link</span>
+          </button>
+        </div>
+        <div class="mt-3" id="active-shares-section">
+          <div class="d-flex align-items-center justify-content-between mb-1">
+            <label class="form-label small fw-bold mb-0">Active Share Links</label>
+            <button
+              type="button"
+              class="btn btn-sm btn-link p-0 text-decoration-none small text-dark fw-bold"
+              id="refresh-active-shares-btn"
+              title="Refresh links &amp; stats"
+              style="font-size: 0.75rem"
+            >
+              Refresh
+            </button>
+          </div>
+          <div id="active-shares-list" class="d-flex flex-column gap-2">
+            <div class="text-muted small text-center py-2">
+              No active share links for this file.
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

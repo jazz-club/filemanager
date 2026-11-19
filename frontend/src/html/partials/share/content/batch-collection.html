@@ -1,0 +1,159 @@
+<div id="share-batch-view" class="p-3 p-md-4 d-none">
+  <div
+    class="d-flex align-items-start justify-content-between flex-wrap gap-3 mb-3 pb-3 border-bottom border-dark"
+  >
+    <div>
+      <h4 class="fw-bold mb-1 d-flex align-items-center gap-2">
+        <img
+          src="/src/assets/icons/lib/SVG/regular/globe.svg"
+          width="22"
+          height="22"
+          alt=""
+          style="image-rendering: pixelated"
+        />
+        <span id="batch-collection-title">Shared Collection</span>
+      </h4>
+      <div class="text-muted small font-monospace" id="batch-collection-subtitle">
+        0 items • 0 B
+      </div>
+    </div>
+
+    <div class="d-flex align-items-center gap-2 flex-wrap">
+      <button
+        type="button"
+        id="batch-save-vault-btn"
+        class="btn btn-primary fw-bold d-flex align-items-center gap-2 px-3 py-2 d-none"
+      >
+        <img
+          src="/src/assets/icons/lib/SVG/regular/home.svg"
+          width="16"
+          height="16"
+          alt=""
+          style="image-rendering: pixelated"
+        />
+        <span>Add All to Vault</span>
+      </button>
+      <div id="batch-download-action-box">
+        <a
+          href="#"
+          id="batch-download-zip-btn"
+          class="btn btn-success fw-bold d-flex align-items-center gap-2 px-3 py-2"
+        >
+          <img
+            src="/src/assets/icons/lib/SVG/regular/download.svg"
+            width="16"
+            height="16"
+            alt=""
+            style="image-rendering: pixelated"
+          />
+          <span>Download All (.zip)</span>
+        </a>
+      </div>
+    </div>
+  </div>
+
+  <div
+    id="batch-logged-in-banner"
+    class="alert alert-info py-2 px-3 d-flex align-items-center justify-content-between gap-2 mb-3 d-none"
+    style="font-size: 0.82rem"
+  >
+    <div class="d-flex align-items-center gap-2">
+      <img
+        src="/src/assets/icons/lib/SVG/regular/home.svg"
+        width="16"
+        height="16"
+        style="image-rendering: pixelated"
+        alt=""
+      />
+      <span id="batch-logged-in-msg"
+        >Logged in • Click <strong>Add All to Vault</strong> above to save this entire collection
+        into your vault.</span
+      >
+    </div>
+  </div>
+
+  <div
+    id="batch-public-register-banner"
+    class="p-3 border border-dark rounded bg-light d-flex align-items-center justify-content-between flex-wrap gap-2 mb-3 d-none"
+  >
+    <div class="d-flex align-items-center gap-2">
+      <img
+        src="/src/assets/icons/lib/SVG/regular/home.svg"
+        width="22"
+        height="22"
+        style="image-rendering: pixelated"
+        alt=""
+      />
+      <div>
+        <div class="fw-bold small">Save this collection to your personal PinkBox vault</div>
+        <div class="text-muted" style="font-size: 0.75rem">
+          Create a free account to store and organize these files in your vault.
+        </div>
+      </div>
+    </div>
+    <div class="d-flex align-items-center gap-2">
+      <a href="#" id="batch-banner-register-btn" class="btn btn-sm btn-primary fw-bold">
+        Create account and add file(s)
+      </a>
+      <a
+        href="#"
+        id="batch-banner-login-btn"
+        class="btn btn-sm btn-white border border-dark fw-bold"
+      >
+        Log In
+      </a>
+    </div>
+  </div>
+
+  <div
+    id="batch-saved-alert"
+    class="alert alert-success d-flex align-items-center justify-content-between gap-2 mb-3 py-2 px-3 d-none"
+  >
+    <div class="d-flex align-items-center gap-2">
+      <img
+        src="/src/assets/icons/lib/SVG/regular/check.svg"
+        width="16"
+        height="16"
+        alt=""
+        style="image-rendering: pixelated"
+      />
+      <span class="small fw-bold" id="batch-saved-msg"
+        >Collection successfully added to your vault!</span
+      >
+    </div>
+    <a
+      href="/vault"
+      class="btn btn-sm btn-outline-success fw-bold py-0 px-2"
+      style="font-size: 0.75rem"
+      >Open Vault →</a
+    >
+  </div>
+
+  <div
+    id="batch-viewonly-banner"
+    class="alert alert-secondary d-flex align-items-center gap-2 mb-3 py-2 px-3 d-none"
+  >
+    <img
+      src="/src/assets/icons/lib/PNG/for-light-mode/16px/regular/lock.png"
+      width="16"
+      height="16"
+      alt=""
+      style="image-rendering: pixelated"
+    />
+    <span class="small">This collection is shared as <strong>View/Download</strong>.</span>
+  </div>
+
+  <div class="table-responsive border border-dark rounded bg-white">
+    <table class="table table-hover mb-0 align-middle">
+      <thead class="table-light border-bottom border-dark">
+        <tr>
+          <th style="width: 40px"></th>
+          <th>Name</th>
+          <th class="d-none d-sm-table-cell">Size</th>
+          <th class="text-end pe-3">Actions</th>
+        </tr>
+      </thead>
+      <tbody id="batch-files-tbody"></tbody>
+    </table>
+  </div>
+</div>

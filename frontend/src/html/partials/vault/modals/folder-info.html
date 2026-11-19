@@ -1,0 +1,36 @@
+<div class="modal fade" id="folder-info-modal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content border-2 border-dark shadow">
+      <div class="modal-header border-bottom border-dark">
+        <h5 class="modal-title fw-bold" id="folder-info-title">Folder Information</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <div id="folder-info-loading" class="text-center py-4 d-none">
+          <span class="spinner-border spinner-border-sm me-2" role="status"></span>Loading folder
+          information…
+        </div>
+        <div id="folder-info-error" class="alert alert-danger d-none"></div>
+        <dl id="folder-info-details" class="row mb-0">
+          <dt class="col-5">Path</dt>
+          <dd class="col-7 text-break" id="folder-info-path">-</dd>
+          <dt class="col-5">Files</dt>
+          <dd class="col-7" id="folder-info-files">-</dd>
+          <dt class="col-5">Subfolders</dt>
+          <dd class="col-7" id="folder-info-subfolders">-</dd>
+          <dt class="col-5">Total size</dt>
+          <dd class="col-7" id="folder-info-size">-</dd>
+          <dt class="col-5">Created</dt>
+          <dd class="col-7" id="folder-info-created">-</dd>
+          <dt class="col-5">Last modified</dt>
+          <dd class="col-7 mb-0" id="folder-info-modified">-</dd>
+        </dl>
+      </div>
+      <div class="modal-footer border-top border-dark">
+        <button type="button" class="btn btn-white border border-dark" data-bs-dismiss="modal">
+          Close
+        </button>
+      </div>
+    </div>
+  </div>
+</div>

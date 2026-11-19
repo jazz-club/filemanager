@@ -40,9 +40,9 @@ const envContent =
     "MINIO_PORT=9000",
     "MINIO_ACCESS_KEY=" + minioKey,
     "MINIO_SECRET_KEY=" + minioSecret,
-	"MINIO_BUCKET=encrypted-files",
-	"ADMIN_USERNAME=admin",
-	"ADMIN_PASSWORD=admin"
+    "MINIO_BUCKET=encrypted-files",
+    "ADMIN_USERNAME=admin",
+    "ADMIN_PASSWORD=admin",
   ].join("\n") + "\n";
 
 fs.writeFileSync(envPath, envContent, "utf8");

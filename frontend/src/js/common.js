@@ -23,9 +23,11 @@ function fetchCsrfToken() {
     .then(function (d) {
       if (d && d.csrfToken) {
         currentCsrfToken = d.csrfToken;
-        document.querySelectorAll("input[name='csrfToken'], input[name='_csrf']").forEach(function (inp) {
-          inp.value = d.csrfToken;
-        });
+        document
+          .querySelectorAll("input[name='csrfToken'], input[name='_csrf']")
+          .forEach(function (inp) {
+            inp.value = d.csrfToken;
+          });
       }
       return currentCsrfToken;
     })
@@ -59,16 +61,6 @@ function api(path, opts) {
   }
 
   return fetch("/api" + path, opts);
-}
-
-function escapeHtml(str) {
-  if (!str) return "";
-  return String(str)
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#039;");
 }
 
 function showMsg(text, type) {
@@ -138,51 +130,3 @@ function pushNotification(text, type) {
     dot.classList.remove("d-none");
   }
 }
-
-function formatBytes(bytes) {
-  var b = parseInt(bytes, 10) || 0;
-  if (b === 0) return "0 B";
-  if (b < 1024) return b + " B";
-  if (b < 1024 * 1024) return (b / 1024).toFixed(1) + " KB";
-  if (b < 1024 * 1024 * 1024) return (b / (1024 * 1024)).toFixed(2) + " MB";
-  return (b / (1024 * 1024 * 1024)).toFixed(2) + " GB";
-}
-
-function formatDate(isoStr) {
-  if (!isoStr) return "";
-  try {
-    var d = new Date(isoStr);
-    if (isNaN(d.getTime())) return "";
-    var y = d.getFullYear();
-    var m = String(d.getMonth() + 1).padStart(2, "0");
-    var day = String(d.getDate()).padStart(2, "0");
-    var hr = String(d.getHours()).padStart(2, "0");
-    var min = String(d.getMinutes()).padStart(2, "0");
-    return y + "-" + m + "-" + day + " " + hr + ":" + min;
-  } catch (e) {
-    return "";
-  }
-}
-
-document.addEventListener("click", function (e) {
-  var btn = e.target.closest(
-    ".toggle-pw-btn, #toggle-pass-visibility, #toggle-admin-pass-visibility"
-  );
-  if (!btn) return;
-  e.preventDefault();
-  var targetId = btn.getAttribute("data-target");
-  var input = targetId
-    ? document.getElementById(targetId)
-    : btn.previousElementSibling ||
-      (btn.closest(".input-group") ? btn.closest(".input-group").querySelector("input") : null);
-  if (!input) return;
-  if (input.type === "password") {
-    input.type = "text";
-    btn.textContent = "○";
-    btn.title = "Hide password";
-  } else {
-    input.type = "password";
-    btn.textContent = "◉";
-    btn.title = "Show password";
-  }
-});

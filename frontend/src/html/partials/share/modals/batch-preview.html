@@ -1,0 +1,32 @@
+<div class="modal fade" id="batchPreviewModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-centered">
+    <div
+      class="modal-content border-2 border-dark"
+      style="box-shadow: 4px 4px 0 0 #000; border-radius: 8px"
+    >
+      <div class="modal-header border-bottom border-dark">
+        <h5 class="modal-title fw-bold text-truncate" id="batch-modal-filename">File Preview</h5>
+        <button
+          type="button"
+          class="btn-close-custom ms-auto"
+          data-bs-dismiss="modal"
+          aria-label="Close"
+        >
+          ✕
+        </button>
+      </div>
+      <div class="modal-body p-3 text-center bg-light" id="batch-modal-mount"></div>
+      <div class="modal-footer border-top border-dark d-flex justify-content-between">
+        <span class="text-muted small font-monospace" id="batch-modal-filesize">0 B</span>
+        <div class="d-flex gap-2">
+          <a href="#" id="batch-modal-download-btn" class="btn btn-sm btn-success fw-bold d-none"
+            >Download</a
+          >
+          <button type="button" class="btn btn-sm btn-secondary" data-bs-dismiss="modal">
+            Close
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

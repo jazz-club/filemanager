@@ -1,0 +1,377 @@
+<main class="container-lg mb-5 pb-5" id="main-dropzone">
+  <div id="msg" class="alert d-none mb-3" role="alert"></div>
+
+  <div id="drop-overlay" class="drop-overlay d-none">
+    <div class="drop-overlay-box">
+      <h4 class="fw-bold mt-2 mb-0">Drop files anywhere to upload</h4>
+      <p class="small text-muted mb-0">Size limit 5GB</p>
+    </div>
+  </div>
+
+  <div class="card shadow-sm border-0 mb-4">
+    <div class="card-body py-3 px-3">
+      <div
+        class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3 pb-2 border-bottom"
+      >
+        <div class="d-flex flex-wrap align-items-center gap-1" id="breadcrumb-list">
+          <button type="button" class="btn btn-sm btn-white fw-bold font-monospace">
+            <img
+              src="/src/assets/icons/lib/SVG/regular/home.svg"
+              width="14"
+              height="14"
+              alt=""
+              style="vertical-align: -2px; margin-right: 4px"
+            />/root
+          </button>
+        </div>
+      </div>
+
+      <div class="row g-2 align-items-center">
+        <div class="col-12 col-md-auto">
+          <h2 class="h6 mb-0 fw-bold">Upload</h2>
+        </div>
+        <div class="col-12 col-md">
+          <input type="file" id="file-input" class="form-control" multiple />
+        </div>
+        <div class="col-12 col-md-auto">
+          <button type="button" id="start-upload-btn" class="btn btn-primary w-100 w-md-auto">
+            Feed Files To Server
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="continuous-toolbar mb-3" id="vault-continuous-toolbar">
+    <div class="toolbar-search-wrap d-flex align-items-center justify-content-between">
+      <div class="d-flex align-items-center flex-grow-1" style="min-width: 0">
+        <svg
+          class="toolbar-search-icon"
+          width="17"
+          height="17"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2.8"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          style="margin-left: 8px; margin-right: 6px; flex-shrink: 0; color: #000000"
+          aria-hidden="true"
+        >
+          <circle cx="11" cy="11" r="7.5"></circle>
+          <line x1="21" y1="21" x2="16.5" y2="16.5"></line>
+        </svg>
+        <input
+          type="text"
+          id="search-input"
+          class="form-control toolbar-control"
+          placeholder="Search…"
+        />
+      </div>
+      <span
+        class="px-2 small text-muted font-monospace flex-shrink-0 d-md-none"
+        id="file-count-mobile"
+        title="Item count"
+        >0</span
+      >
+    </div>
+
+    <div class="toolbar-divider d-none d-md-block"></div>
+
+    <div class="toolbar-dropdowns-wrap d-flex align-items-center">
+      <div class="dropdown toolbar-item-dropdown">
+        <button
+          class="toolbar-btn dropdown-toggle"
+          type="button"
+          id="filter-dropdown-btn"
+          data-bs-toggle="dropdown"
+          aria-expanded="false"
+        >
+          Filter: All
+        </button>
+        <ul
+          class="dropdown-menu shadow-sm border-dark"
+          aria-labelledby="filter-dropdown-btn"
+          id="filter-dropdown-menu"
+        >
+          <li>
+            <button
+              class="dropdown-item py-1 filter-opt active fw-bold"
+              type="button"
+              data-filter="all"
+            >
+              All File Types
+            </button>
+          </li>
+          <li>
+            <button class="dropdown-item py-1 filter-opt" type="button" data-filter="image">
+              Images
+            </button>
+          </li>
+          <li>
+            <button class="dropdown-item py-1 filter-opt" type="button" data-filter="video">
+              Videos
+            </button>
+          </li>
+          <li>
+            <button class="dropdown-item py-1 filter-opt" type="button" data-filter="audio">
+              Audio
+            </button>
+          </li>
+          <li>
+            <button class="dropdown-item py-1 filter-opt" type="button" data-filter="document">
+              Docs/Code
+            </button>
+          </li>
+          <li>
+            <button class="dropdown-item py-1 filter-opt" type="button" data-filter="archive">
+              Archives
+            </button>
+          </li>
+        </ul>
+      </div>
+
+      <div class="dropdown toolbar-item-dropdown">
+        <button
+          class="toolbar-btn dropdown-toggle"
+          type="button"
+          id="sort-dropdown-btn"
+          data-bs-toggle="dropdown"
+          aria-expanded="false"
+        >
+          Sort: Newest
+        </button>
+        <ul
+          class="dropdown-menu shadow-sm border-dark"
+          aria-labelledby="sort-dropdown-btn"
+          id="sort-dropdown-menu"
+        >
+          <li>
+            <button
+              class="dropdown-item py-1 sort-opt active fw-bold"
+              type="button"
+              data-sort="date-desc"
+            >
+              Newest First
+            </button>
+          </li>
+          <li>
+            <button class="dropdown-item py-1 sort-opt" type="button" data-sort="date-asc">
+              Oldest First
+            </button>
+          </li>
+          <li>
+            <button class="dropdown-item py-1 sort-opt" type="button" data-sort="name-asc">
+              Name (A-Z)
+            </button>
+          </li>
+          <li>
+            <button class="dropdown-item py-1 sort-opt" type="button" data-sort="name-desc">
+              Name (Z-A)
+            </button>
+          </li>
+          <li>
+            <button class="dropdown-item py-1 sort-opt" type="button" data-sort="size-desc">
+              Largest First
+            </button>
+          </li>
+          <li>
+            <button class="dropdown-item py-1 sort-opt" type="button" data-sort="size-asc">
+              Smallest First
+            </button>
+          </li>
+        </ul>
+      </div>
+
+      <div class="dropdown toolbar-item-dropdown">
+        <button
+          class="toolbar-btn dropdown-toggle"
+          type="button"
+          id="view-dropdown-btn"
+          data-bs-toggle="dropdown"
+          aria-expanded="false"
+        >
+          View
+        </button>
+        <ul
+          class="dropdown-menu shadow-sm border-dark"
+          aria-labelledby="view-dropdown-btn"
+          style="min-width: 13.5rem"
+        >
+          <li>
+            <button
+              class="dropdown-item py-1 d-flex justify-content-between align-items-center gap-3"
+              type="button"
+              id="view-mode-list-btn"
+            >
+              <span class="d-flex align-items-center gap-2"
+                ><img
+                  src="/src/assets/icons/lib/SVG/regular/bullet-list.svg"
+                  width="14"
+                  height="14"
+                  style="object-fit: contain"
+                  alt=""
+                />List View</span
+              ><span class="view-check ms-3" id="view-check-list"
+                ><img
+                  src="/src/assets/icons/lib/SVG/regular/check.svg"
+                  width="12"
+                  height="12"
+                  style="object-fit: contain"
+                  alt="✓"
+              /></span>
+            </button>
+          </li>
+          <li>
+            <button
+              class="dropdown-item py-1 d-flex justify-content-between align-items-center gap-3"
+              type="button"
+              id="view-mode-grid-btn"
+            >
+              <span class="d-flex align-items-center gap-2"
+                ><img
+                  src="/src/assets/icons/lib/SVG/regular/grid.svg"
+                  width="14"
+                  height="14"
+                  style="object-fit: contain"
+                  alt=""
+                />Grid View</span
+              ><span class="view-check ms-3 d-none" id="view-check-grid"
+                ><img
+                  src="/src/assets/icons/lib/SVG/regular/check.svg"
+                  width="12"
+                  height="12"
+                  style="object-fit: contain"
+                  alt="✓"
+              /></span>
+            </button>
+          </li>
+          <li><hr class="dropdown-divider my-1" /></li>
+          <li>
+            <button
+              class="dropdown-item py-1 d-flex justify-content-between align-items-center gap-3"
+              type="button"
+              id="view-toggle-thumbs-btn"
+            >
+              <span class="d-flex align-items-center gap-2"
+                ><img
+                  src="/src/assets/icons/lib/SVG/regular/image.svg"
+                  width="14"
+                  height="14"
+                  style="object-fit: contain"
+                  alt=""
+                />Show Thumbnails</span
+              ><span class="view-check ms-3" id="view-check-thumbs"
+                ><img
+                  src="/src/assets/icons/lib/SVG/regular/check.svg"
+                  width="12"
+                  height="12"
+                  style="object-fit: contain"
+                  alt="✓"
+              /></span>
+            </button>
+          </li>
+        </ul>
+      </div>
+
+      <div class="dropdown toolbar-item-dropdown">
+        <button
+          class="toolbar-btn dropdown-toggle"
+          type="button"
+          id="select-dropdown-btn"
+          data-bs-toggle="dropdown"
+          aria-expanded="false"
+        >
+          Select
+        </button>
+        <ul class="dropdown-menu shadow-sm border-dark" aria-labelledby="select-dropdown-btn">
+          <li>
+            <button class="dropdown-item py-1" type="button" id="batch-select-all-btn">All</button>
+          </li>
+          <li>
+            <button class="dropdown-item py-1" type="button" id="batch-select-files-btn">
+              Files
+            </button>
+          </li>
+          <li>
+            <button class="dropdown-item py-1" type="button" id="batch-select-folders-btn">
+              Folders
+            </button>
+          </li>
+          <li><hr class="dropdown-divider my-1" /></li>
+          <li>
+            <h6 class="dropdown-header small text-muted text-uppercase mb-0 py-1">By Type</h6>
+          </li>
+          <li>
+            <button class="dropdown-item py-1" type="button" data-select-type="audio">Audio</button>
+          </li>
+          <li>
+            <button class="dropdown-item py-1" type="button" data-select-type="image">
+              Images
+            </button>
+          </li>
+          <li>
+            <button class="dropdown-item py-1" type="button" data-select-type="video">
+              Videos
+            </button>
+          </li>
+          <li>
+            <button class="dropdown-item py-1" type="button" data-select-type="document">
+              Documents
+            </button>
+          </li>
+          <li>
+            <button class="dropdown-item py-1" type="button" data-select-type="archive">
+              Archives
+            </button>
+          </li>
+        </ul>
+      </div>
+    </div>
+
+    <select id="type-filter" class="d-none">
+      <option value="all">all</option>
+    </select>
+    <select id="sort-select" class="d-none">
+      <option value="date-desc">date-desc</option>
+    </select>
+
+    <div class="toolbar-actions-wrap ms-md-auto d-flex align-items-center">
+      <div class="toolbar-divider d-none d-md-block"></div>
+      <button type="button" id="new-folder-btn" class="toolbar-btn" title="Create Folder">
+        <img
+          src="/src/assets/icons/lib/SVG/regular/plus.svg"
+          width="14"
+          height="14"
+          style="vertical-align: -2px; margin-right: 4px"
+          alt=""
+        />New Folder
+      </button>
+
+      <div class="toolbar-divider d-none d-md-block"></div>
+      <button id="refresh-btn" class="toolbar-btn" title="Refresh list">Refresh</button>
+
+      <div class="toolbar-divider d-none d-md-block"></div>
+      <span
+        class="px-2 small text-muted font-monospace d-none d-md-inline"
+        id="file-count"
+        title="Item count"
+        >0</span
+      >
+    </div>
+  </div>
+
+  <div id="folders-container" class="d-none"><div id="folders-grid"></div></div>
+
+  <div class="card shadow-sm border-0 mb-4">
+    <div id="file-list-empty" class="text-center text-muted py-5 d-none">
+      <span
+        class="d-block mb-2 font-monospace fw-bold whimsical-float"
+        style="font-size: 1.8rem; color: #ff69b4; line-height: 1"
+        >:3</span
+      >
+      <div class="small fw-semibold text-muted">nun here for now</div>
+    </div>
+    <div class="accordion" id="filesAccordion"></div>
+  </div>
+</main>

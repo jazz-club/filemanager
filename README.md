@@ -29,14 +29,14 @@ The backend will use node.js because I can't find the time to do fun stuff in li
 
 # Architecture
 
-The full application will be deployed as a DockerCompose stack, the backend and frontend will both be compartamentalised seperately.
-The project will of course use standard TLS encryption in addition to other technical solutions to security, `nginx` will need to exposre a public port for routing. Most requests other than backend traffic will be locally routed. The backend can interface `PostgressSQL` for metadata and system information and `MinIO` seperately for encrypted object storage.
+The full application will be deployed as a DockerCompose stack, the backend and frontend will both be compartmentalised separately.
+The project will of course use standard TLS encryption in addition to other technical solutions to security, `nginx` will need to expose a public port for routing. Most requests other than backend traffic will be locally routed. The backend can interface `PostgressSQL` for metadata and system information and `MinIO` seperately for encrypted object storage.
 
 I decided on implementing encryption entirely client-side, both because this is the practice I am most familiar with and also for the sake of reducing the amount of trust placed in any non local providers (in our case still our Docker containers, but as a best practice measure).
 
 # Crypto
 
-With the aforementioned decision of cryptographic operations being entirely client sided, plainttext will never need to be routed over the network, despite taking steps to still ensure security during the transport process. Some important definitions for this:
+With the aforementioned decision of cryptographic operations being entirely client sided, plaintext will never need to be routed over the network, despite taking steps to still ensure security during the transport process. Some important definitions for this:
 
 - `REK` - "Root Encryption Key".
   The primary encryption Key.
@@ -86,11 +86,11 @@ The client will generate a random `FK` for each uploaded file to be used with `X
 All endpoints require a valid session cookie and a valid CSRF token header.
 
 ### `/api/auth`
-- `GET /api/auth/csrf`: Retrive CSRF token
+- `GET /api/auth/csrf`: Retrieve CSRF token
 - `GET /api/auth/registration-status`: Checks admin account registration status
 - `POST /api/auth/register`: Register endpoint for new accounts
 - `POST /api/auth/login`: Standard login endpoint
-- `POST /api/auth/logout`: Clears session and logsout
+- `POST /api/auth/logout`: Clears session and logout
 - `POST /api/auth/change-password`: Update an account password
 - `DELETE /api/auth/account`: Wipes an account and all metadata, can be authenticated using password or an admin token
 
@@ -127,14 +127,14 @@ All endpoints require a valid session cookie and a valid CSRF token header.
 - `GET /api/admin/settings`: Global registration settings
 - `PATCH /api/admin/settings`: Global registration toggle
 - `GET /api/admin/users`: Enumerates hashed db metrics
-- `DELETE /api/admin/users/:id`: Administrative account deletion (needs to be logged seperately)
+- `DELETE /api/admin/users/:id`: Administrative account deletion (needs to be logged separately)
 
 # Env
 
 
 | Variable | Description | Default |
 | ----------- | ----------- | ----------- |
-| `NODE_ENV` | Current working enviroment | `development` |
+| `NODE_ENV` | Current working environment | `development` |
 | `SESSION_SECRET` | 256-bit pseudorandom key| 64chr Hex |
 | `ENCRYPTION_SALT` | HMAC-SHA256 pseudonymization | 32chr Hex |
 | `DATABASE_URL` | PostgreSQL DB URI| `postgres://vault:password@postgres:5432/vault` |

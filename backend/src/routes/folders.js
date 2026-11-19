@@ -1,6 +1,6 @@
 const { Router } = require("express");
 const path = require("path");
-const { pool } = require("../db");
+const { folderRepository, pool } = require("../db");
 const { deleteObject } = require("../storage");
 const logger = require("../logger");
 
@@ -16,53 +16,73 @@ function requireAuth(req, res, next) {
 router.get("/", requireAuth, async (req, res) => {
   try {
     const parentId = req.query.parentId ? parseInt(req.query.parentId, 10) : null;
-    let query, params;
-
-    if (req.query.all === "true") {
-      query = `SELECT id, name, parent_id, color, created_at, updated_at 
-               FROM folders 
-               WHERE owner_id = $1 
-               ORDER BY LOWER(name) ASC`;
-      params = [req.session.userId];
-    } else if (parentId) {
-      query = `SELECT id, name, parent_id, color, created_at, updated_at 
-               FROM folders 
-               WHERE owner_id = $1 AND parent_id = $2 
-               ORDER BY LOWER(name) ASC`;
-      params = [req.session.userId, parentId];
-    } else {
-      query = `SELECT id, name, parent_id, color, created_at, updated_at 
-               FROM folders 
-               WHERE owner_id = $1 AND parent_id IS NULL 
-               ORDER BY LOWER(name) ASC`;
-      params = [req.session.userId];
-    }
-
-    const result = await pool.query(query, params);
-    res.json(result.rows);
+    const folders = await folderRepository.listFolders(
+      req.session.userId,
+      parentId,
+      req.query.all === "true"
+    );
+    res.json(folders);
   } catch (err) {
     console.error("List folders error:", err);
     res.status(500).json({ error: "Failed to list folders" });
   }
 });
 
+router.get("/:id/info", requireAuth, async (req, res) => {
+  try {
+    const folderId = parseInt(req.params.id, 10);
+    if (!Number.isSafeInteger(folderId) || folderId <= 0) {
+      return res.status(400).json({ error: "Invalid folder ID" });
+    }
+
+    const infoQ = await pool.query(
+      `WITH RECURSIVE folder_tree AS (
+         SELECT id, name, parent_id, created_at, updated_at
+         FROM folders
+         WHERE id = $1 AND owner_id = $2
+         UNION ALL
+         SELECT child.id, child.name, child.parent_id, child.created_at, child.updated_at
+         FROM folders child
+         JOIN folder_tree parent ON child.parent_id = parent.id
+         WHERE child.owner_id = $2
+       )
+       SELECT
+         (SELECT COUNT(*) FROM folder_tree) AS folder_count,
+         (SELECT COUNT(*) FROM files WHERE folder_id IN (SELECT id FROM folder_tree)) AS file_count,
+         COALESCE((SELECT SUM(size_bytes) FROM files WHERE folder_id IN (SELECT id FROM folder_tree)), 0) AS size_bytes,
+         GREATEST(
+           COALESCE((SELECT MAX(updated_at) FROM folder_tree), folder.created_at),
+           COALESCE((SELECT MAX(uploaded_at) FROM files WHERE folder_id IN (SELECT id FROM folder_tree)), folder.created_at)
+         ) AS last_modified,
+         folder.created_at
+       FROM folders folder
+       WHERE folder.id = $1 AND folder.owner_id = $2`,
+      [folderId, req.session.userId]
+    );
+
+    if (infoQ.rows.length === 0) return res.status(404).json({ error: "Folder not found" });
+    const info = infoQ.rows[0];
+    const breadcrumbs = await folderRepository.getFolderBreadcrumbs(folderId, req.session.userId);
+
+    res.json({
+      folderId,
+      folderCount: Math.max(0, Number(info.folder_count) - 1),
+      fileCount: Number(info.file_count) || 0,
+      sizeBytes: Number(info.size_bytes) || 0,
+      createdAt: info.created_at,
+      lastModified: info.last_modified,
+      path: "/" + breadcrumbs.map((item) => item.name).join("/"),
+    });
+  } catch (err) {
+    logger.error("Folder information error", err);
+    res.status(500).json({ error: "Failed to load folder information" });
+  }
+});
+
 router.get("/:id/breadcrumbs", requireAuth, async (req, res) => {
   try {
     const folderId = parseInt(req.params.id, 10);
-    const breadcrumbs = [];
-    let currentId = folderId;
-
-    while (currentId) {
-      const q = await pool.query(
-        "SELECT id, name, parent_id FROM folders WHERE id = $1 AND owner_id = $2",
-        [currentId, req.session.userId]
-      );
-      if (q.rows.length === 0) break;
-      const f = q.rows[0];
-      breadcrumbs.unshift({ id: f.id, name: f.name });
-      currentId = f.parent_id;
-    }
-
+    const breadcrumbs = await folderRepository.getFolderBreadcrumbs(folderId, req.session.userId);
     res.json(breadcrumbs);
   } catch (err) {
     console.error("Breadcrumbs error:", err);
@@ -78,24 +98,23 @@ router.post("/", requireAuth, async (req, res) => {
     }
 
     const rawName = name.trim();
-    const cleanName = path.basename(rawName).replace(/[\x00-\x1F\x7F-\x9F]/g, "").slice(0, 255) || "unnamed_folder";
+    const cleanName =
+      path
+        .basename(rawName)
+        .replace(/[\x00-\x1F\x7F-\x9F]/g, "")
+        .slice(0, 255) || "unnamed_folder";
     const targetParentId = parentId ? parseInt(parentId, 10) : null;
 
     if (targetParentId) {
-      const check = await pool.query("SELECT id FROM folders WHERE id = $1 AND owner_id = $2", [
-        targetParentId,
-        req.session.userId,
-      ]);
-      if (check.rows.length === 0) {
-        return res.status(400).json({ error: "Parent folder not found" });
-      }
+      const parent = await folderRepository.getFolderById(targetParentId, req.session.userId);
+      if (!parent) return res.status(400).json({ error: "Parent folder not found" });
     }
 
-    const result = await pool.query(
-      `INSERT INTO folders (owner_id, name, parent_id, color)
-       VALUES ($1, $2, $3, $4)
-       RETURNING id, name, parent_id, color, created_at, updated_at`,
-      [req.session.userId, cleanName, targetParentId, "#ffffff"]
+    const folder = await folderRepository.createFolder(
+      req.session.userId,
+      cleanName,
+      targetParentId,
+      "#ffffff"
     );
 
     logger.audit({
@@ -104,10 +123,10 @@ router.post("/", requireAuth, async (req, res) => {
       userId: req.session.userId,
       outcome: "SUCCESS",
       statusCode: 201,
-      details: { folderId: result.rows[0].id, folderName: cleanName },
+      details: { folderId: folder.id, folderName: cleanName },
     });
 
-    res.status(201).json(result.rows[0]);
+    res.status(201).json(folder);
   } catch (err) {
     logger.error("Create folder error", err);
     res.status(500).json({ error: "Failed to create folder" });
@@ -122,17 +141,13 @@ router.patch("/:id/color", requireAuth, async (req, res) => {
       return res.status(400).json({ error: "Invalid hex color format" });
     }
     const cleanColor = (color || "#ffffff").slice(0, 32);
-
-    const result = await pool.query(
-      `UPDATE folders 
-       SET color = $1, updated_at = NOW() 
-       WHERE id = $2 AND owner_id = $3 
-       RETURNING id, name, parent_id, color, updated_at`,
-      [cleanColor, folderId, req.session.userId]
+    const folder = await folderRepository.updateFolderColor(
+      folderId,
+      req.session.userId,
+      cleanColor
     );
-
-    if (result.rows.length === 0) return res.status(404).json({ error: "Folder not found" });
-    res.json(result.rows[0]);
+    if (!folder) return res.status(404).json({ error: "Folder not found" });
+    res.json(folder);
   } catch (err) {
     logger.error("Change folder color error", err);
     res.status(500).json({ error: "Failed to change folder color" });
@@ -146,17 +161,13 @@ router.patch("/:id/rename", requireAuth, async (req, res) => {
     if (!name || typeof name !== "string" || !name.trim()) {
       return res.status(400).json({ error: "New name is required" });
     }
-
-    const result = await pool.query(
-      `UPDATE folders 
-       SET name = $1, updated_at = NOW() 
-       WHERE id = $2 AND owner_id = $3 
-       RETURNING id, name, parent_id, updated_at`,
-      [name.trim().slice(0, 255), folderId, req.session.userId]
+    const folder = await folderRepository.renameFolder(
+      folderId,
+      req.session.userId,
+      name.trim().slice(0, 255)
     );
-
-    if (result.rows.length === 0) return res.status(404).json({ error: "Folder not found" });
-    res.json(result.rows[0]);
+    if (!folder) return res.status(404).json({ error: "Folder not found" });
+    res.json(folder);
   } catch (err) {
     console.error("Rename folder error:", err);
     res.status(500).json({ error: "Failed to rename folder" });
@@ -167,37 +178,25 @@ router.patch("/:id/move", requireAuth, async (req, res) => {
   try {
     const folderId = parseInt(req.params.id, 10);
     const targetParentId = req.body.parentId ? parseInt(req.body.parentId, 10) : null;
-
     if (folderId === targetParentId) {
       return res.status(400).json({ error: "Cannot move folder into itself" });
     }
 
-    // cheeky
     if (targetParentId) {
-      let cur = targetParentId;
-      while (cur) {
-        const chk = await pool.query(
-          "SELECT parent_id FROM folders WHERE id = $1 AND owner_id = $2",
-          [cur, req.session.userId]
-        );
-        if (chk.rows.length === 0) break;
-        if (chk.rows[0].parent_id === folderId) {
+      let currentId = targetParentId;
+      while (currentId) {
+        const currentFolder = await folderRepository.getFolderById(currentId, req.session.userId);
+        if (!currentFolder) break;
+        if (currentFolder.parent_id === folderId) {
           return res.status(400).json({ error: "Cannot move folder into its own subfolder" });
         }
-        cur = chk.rows[0].parent_id;
+        currentId = currentFolder.parent_id;
       }
     }
 
-    const result = await pool.query(
-      `UPDATE folders 
-       SET parent_id = $1, updated_at = NOW() 
-       WHERE id = $2 AND owner_id = $3 
-       RETURNING id, name, parent_id`,
-      [targetParentId, folderId, req.session.userId]
-    );
-
-    if (result.rows.length === 0) return res.status(404).json({ error: "Folder not found" });
-    res.json(result.rows[0]);
+    const folder = await folderRepository.moveFolder(folderId, req.session.userId, targetParentId);
+    if (!folder) return res.status(404).json({ error: "Folder not found" });
+    res.json({ id: folder.id, name: folder.name, parent_id: folder.parent_id });
   } catch (err) {
     console.error("Move folder error:", err);
     res.status(500).json({ error: "Failed to move folder" });
@@ -207,45 +206,19 @@ router.patch("/:id/move", requireAuth, async (req, res) => {
 router.delete("/:id", requireAuth, async (req, res) => {
   try {
     const folderId = parseInt(req.params.id, 10);
-
-    const allFolderIds = [folderId];
-    let toProcess = [folderId];
-
-    while (toProcess.length > 0) {
-      const parentList = toProcess;
-      toProcess = [];
-      const sub = await pool.query(
-        "SELECT id FROM folders WHERE parent_id = ANY($1) AND owner_id = $2",
-        [parentList, req.session.userId]
-      );
-      for (const row of sub.rows) {
-        allFolderIds.push(row.id);
-        toProcess.push(row.id);
-      }
-    }
-
-    const files = await pool.query(
-      "SELECT storage_key FROM files WHERE folder_id = ANY($1) AND owner_id = $2",
-      [allFolderIds, req.session.userId]
+    const folderIds = await folderRepository.getDescendantFolderIds(folderId, req.session.userId);
+    const storageKeys = await folderRepository.getFileStorageKeysByFolders(
+      folderIds,
+      req.session.userId
     );
-    for (const f of files.rows) {
+    for (const storageKey of storageKeys) {
       try {
-        await deleteObject(f.storage_key);
-      } catch (e) {
-        console.error("Failed to delete MinIO object:", f.storage_key, e);
+        await deleteObject(storageKey);
+      } catch (err) {
+        console.error("Failed to delete MinIO object:", storageKey, err);
       }
     }
-
-    await pool.query("DELETE FROM files WHERE folder_id = ANY($1) AND owner_id = $2", [
-      allFolderIds,
-      req.session.userId,
-    ]);
-
-    await pool.query("DELETE FROM folders WHERE id = ANY($1) AND owner_id = $2", [
-      allFolderIds,
-      req.session.userId,
-    ]);
-
+    await folderRepository.deleteFolderRows(folderIds, req.session.userId);
     res.json({ message: "Folder and all its contents permanently deleted" });
   } catch (err) {
     console.error("Delete folder error:", err);

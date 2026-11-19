@@ -1,0 +1,31 @@
+<div
+  id="share-error"
+  class="card shadow-sm border border-dark p-4 p-md-5 text-center bg-white d-none"
+>
+  <div class="mb-3">
+    <img
+      id="share-error-icon"
+      src="/src/assets/icons/lib/SVG/regular/times-circle.svg"
+      width="48"
+      height="48"
+      alt="Denied"
+      style="image-rendering: pixelated"
+    />
+  </div>
+  <h4 class="fw-bold mb-2" id="share-error-title">Link Unavailable</h4>
+  <p class="text-muted mb-4" id="share-error-msg">
+    This item does not exist, has expired, or the link was revoked.
+  </p>
+  <div class="d-flex justify-content-center gap-2 flex-wrap">
+    <a href="/login" id="share-error-login-btn" class="btn btn-primary d-none fw-bold"
+      >Log In to Access</a
+    >
+    <a
+      href="/login?mode=register"
+      id="share-error-register-btn"
+      class="btn btn-white border border-dark d-none fw-bold"
+      >Create Account</a
+    >
+    <a href="/vault" class="btn btn-outline-dark">Go to Vault</a>
+  </div>
+</div>

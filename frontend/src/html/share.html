@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>PinkBox &lt;3 | Shared File</title>
+    <link rel="icon" type="image/png" href="/src/assets/icons/heart.png" />
+    <link rel="apple-touch-icon" href="/src/assets/icons/heart.png" />
+    <meta name="theme-color" content="#FF033e" />
+    <meta name="description" content="PinkBox Encrypted File Host - Shared File" />
+    <link rel="stylesheet" href="/src/css/bootstrap.min.css" />
+    <link rel="stylesheet" href="/src/css/vendor/prism/prism-tomorrow.min.css" />
+    <link rel="stylesheet" href="/src/css/vendor/prism/prism-line-numbers.min.css" />
+    <link rel="stylesheet" href="/src/css/style.css" />
+  </head>
+  <body class="bg-light d-flex flex-column min-vh-100">
+    <div data-partial="/src/html/partials/share/layout/header.html"></div>
+    <main class="container-lg my-auto py-4" style="max-width: 920px">
+      <div data-partial="/src/html/partials/share/states/loading.html"></div>
+      <div data-partial="/src/html/partials/share/states/error.html"></div>
+      <div
+        id="share-content"
+        class="card shadow-sm border-2 border-dark bg-white overflow-hidden d-none"
+      >
+        <div data-partial="/src/html/partials/share/content/status-bar.html"></div>
+        <div data-partial="/src/html/partials/share/content/single-file.html"></div>
+        <div data-partial="/src/html/partials/share/content/batch-collection.html"></div>
+      </div>
+    </main>
+    <div data-partial="/src/html/partials/share/modals/batch-preview.html"></div>
+    <div data-partial="/src/html/partials/vault/modals/confirm.html"></div>
+    <script src="/src/js/shareLoader.js"></script>
+  </body>
+</html>

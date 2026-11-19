@@ -167,7 +167,7 @@ function loadAdminSettings() {
     })
     .then(function (s) {
       updateRegistrationUI(!!s.allowRegistration);
-    }) // holy shit ecco2k
+    })
     .catch(function (e) {
       console.error("Settings load err:", e);
     });

@@ -1,0 +1,47 @@
+<div class="modal fade" id="deleteAccountModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content border-danger">
+      <div
+        class="modal-header"
+        style="background-color: #fecaca; color: #000000; border-bottom: 2px solid #000000"
+      >
+        <h5 class="modal-title fw-bold">Delete Account</h5>
+        <button
+          type="button"
+          class="btn-close-custom ms-auto"
+          data-bs-dismiss="modal"
+          aria-label="Close"
+          title="Close"
+        >
+          ✕
+        </button>
+      </div>
+      <div class="modal-body">
+        <p class="text-danger fw-bold">See ya? ig</p>
+        <p class="small text-muted mb-3">Please enter your password to confirm:</p>
+        <div class="input-group">
+          <input
+            type="password"
+            id="delete-account-password"
+            class="form-control"
+            placeholder="Your password"
+          />
+          <button
+            class="btn btn-white border-dark toggle-pw-btn"
+            type="button"
+            data-target="delete-account-password"
+            title="Toggle visibility"
+          >
+            &#x25C9;
+          </button>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+        <button type="button" class="btn btn-danger" id="confirm-delete-account-btn">
+          Permanently Delete Account
+        </button>
+      </div>
+    </div>
+  </div>
+</div>

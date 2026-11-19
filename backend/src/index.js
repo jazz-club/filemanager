@@ -12,6 +12,7 @@ const authRoutes = require("./routes/auth");
 const fileRoutes = require("./routes/files");
 const folderRoutes = require("./routes/folders");
 const adminRoutes = require("./routes/admin");
+const shareRoutes = require("./routes/shares");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -78,6 +79,7 @@ app.use("/api/auth", authRoutes);
 app.use("/api/files", fileRoutes);
 app.use("/api/folders", folderRoutes);
 app.use("/api/admin", adminRoutes);
+app.use("/api/shares", shareRoutes);
 
 app.get("/api/health", (req, res) => res.json({ status: "ok" }));
 

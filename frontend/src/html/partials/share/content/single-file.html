@@ -1,0 +1,177 @@
+<div id="share-single-view">
+  <div
+    class="p-3 p-md-4 text-center border-bottom border-dark bg-light"
+    id="share-preview-mount"
+  ></div>
+
+  <div class="p-3 p-md-4">
+    <div class="d-flex align-items-start justify-content-between flex-wrap gap-3 mb-3">
+      <div class="d-flex align-items-center gap-3 text-truncate flex-grow-1">
+        <span id="share-file-type-icon" class="flex-shrink-0"></span>
+        <div class="text-truncate">
+          <h4 class="fw-bold mb-0 text-truncate" id="share-filename" title="File Name">
+            File Name
+          </h4>
+          <div class="text-muted small font-monospace" id="share-filesize">0 B</div>
+        </div>
+      </div>
+
+      <div class="d-flex align-items-center gap-2 flex-wrap">
+        <button
+          type="button"
+          id="share-remove-from-link-btn"
+          class="btn btn-danger fw-bold px-3 py-2 d-none"
+        >
+          Remove from share
+        </button>
+        <button
+          type="button"
+          id="share-save-vault-btn"
+          class="btn btn-primary fw-bold d-flex align-items-center gap-2 px-3 py-2 d-none"
+        >
+          <img
+            src="/src/assets/icons/lib/SVG/regular/home.svg"
+            width="16"
+            height="16"
+            alt=""
+            style="image-rendering: pixelated"
+          />
+          <span>Add to Vault</span>
+        </button>
+
+        <div id="share-download-action-box" class="flex-shrink-0">
+          <a
+            href="#"
+            id="share-download-btn"
+            class="btn btn-success fw-bold d-flex align-items-center gap-2 px-3 py-2"
+          >
+            <img
+              src="/src/assets/icons/lib/SVG/regular/download.svg"
+              width="16"
+              height="16"
+              alt=""
+              style="image-rendering: pixelated"
+            />
+            <span>Download File</span>
+          </a>
+        </div>
+      </div>
+    </div>
+
+    <div
+      id="share-logged-in-banner"
+      class="alert alert-info py-2 px-3 d-flex align-items-center justify-content-between gap-2 mb-3 d-none"
+      style="font-size: 0.82rem"
+    >
+      <div class="d-flex align-items-center gap-2">
+        <img
+          src="/src/assets/icons/lib/SVG/regular/home.svg"
+          width="16"
+          height="16"
+          style="image-rendering: pixelated"
+          alt=""
+        />
+        <span id="share-logged-in-msg"
+          >Logged in • Click <strong>Add to Vault</strong> above to save this file directly into
+          your vault.</span
+        >
+      </div>
+    </div>
+
+    <div
+      id="share-public-register-banner"
+      class="p-3 border border-dark rounded bg-light d-flex align-items-center justify-content-between flex-wrap gap-2 mb-3 d-none"
+    >
+      <div class="d-flex align-items-center gap-2">
+        <img
+          src="/src/assets/icons/lib/SVG/regular/home.svg"
+          width="22"
+          height="22"
+          style="image-rendering: pixelated"
+          alt=""
+        />
+        <div>
+          <div class="fw-bold small">Save this file to your personal PinkBox vault</div>
+          <div class="text-muted" style="font-size: 0.75rem">
+            Create a free account to store and manage your encrypted files.
+          </div>
+        </div>
+      </div>
+      <div class="d-flex align-items-center gap-2">
+        <a href="#" id="share-banner-register-btn" class="btn btn-sm btn-primary fw-bold">
+          Create account and add file(s)
+        </a>
+        <a
+          href="#"
+          id="share-banner-login-btn"
+          class="btn btn-sm btn-white border border-dark fw-bold"
+        >
+          Log In
+        </a>
+      </div>
+    </div>
+
+    <div
+      id="share-saved-alert"
+      class="alert alert-success d-flex align-items-center justify-content-between gap-2 mb-3 py-2 px-3 d-none"
+    >
+      <div class="d-flex align-items-center gap-2">
+        <img
+          src="/src/assets/icons/lib/SVG/regular/check.svg"
+          width="16"
+          height="16"
+          alt=""
+          style="image-rendering: pixelated"
+        />
+        <span class="small fw-bold" id="share-saved-msg"
+          >File successfully added to your vault!</span
+        >
+      </div>
+      <a
+        href="/vault"
+        class="btn btn-sm btn-outline-success fw-bold py-0 px-2"
+        style="font-size: 0.75rem"
+        >Open Vault →</a
+      >
+    </div>
+
+    <div
+      id="share-viewonly-banner"
+      class="alert alert-secondary d-flex align-items-center gap-2 mb-3 py-2 px-3 d-none"
+    >
+      <img
+        src="/src/assets/icons/lib/PNG/for-light-mode/16px/regular/lock.png"
+        width="16"
+        height="16"
+        alt=""
+        style="image-rendering: pixelated"
+      />
+      <span class="small">This file is shared as <strong>View/Download</strong>.</span>
+    </div>
+
+    <div class="card bg-light border p-3 small mb-2">
+      <div class="row g-2">
+        <div class="col-sm-4 text-muted">MIME Type:</div>
+        <div class="col-sm-8 font-monospace text-break" id="share-mimetype">-</div>
+
+        <div class="col-sm-4 text-muted">SHA-256 Checksum:</div>
+        <div
+          class="col-sm-8 font-monospace text-break d-flex align-items-center justify-content-between gap-2"
+        >
+          <span id="share-sha256" class="small">-</span>
+          <button
+            type="button"
+            class="btn btn-white border border-dark btn-sm py-0 px-2 flex-shrink-0 fw-bold"
+            id="share-copy-sha-btn"
+            style="font-size: 0.7rem; color: #000; background: #fff"
+          >
+            Copy
+          </button>
+        </div>
+
+        <div class="col-sm-4 text-muted" id="share-meta-label">Details:</div>
+        <div class="col-sm-8" id="share-meta-details">-</div>
+      </div>
+    </div>
+  </div>
+</div>

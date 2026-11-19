@@ -1,4 +1,4 @@
-const { pool } = require("./db");
+const { loginAttemptRepository } = require("./db");
 
 function getClientIp(req) {
   if (req.headers && req.headers["x-forwarded-for"]) {
@@ -9,16 +9,12 @@ function getClientIp(req) {
 
 async function checkCooldown(identifier) {
   try {
-    const q = await pool.query(
-      "SELECT failed_count, last_failed_at, locked_until FROM login_attempts WHERE identifier = $1",
-      [identifier]
-    );
+    const row = await loginAttemptRepository.findByIdentifier(identifier);
 
-    if (q.rows.length === 0) {
+    if (!row) {
       return { locked: false, failedCount: 0 };
     }
 
-    const row = q.rows[0];
     const now = Date.now();
 
     if (row.locked_until) {
@@ -33,10 +29,9 @@ async function checkCooldown(identifier) {
       }
     }
 
-    // eh
     const lastAttemptMs = new Date(row.last_failed_at).getTime();
     if (now - lastAttemptMs > 15 * 60 * 1000) {
-      await pool.query("DELETE FROM login_attempts WHERE identifier = $1", [identifier]);
+      await loginAttemptRepository.deleteByIdentifier(identifier);
       return { locked: false, failedCount: 0 };
     }
 
@@ -50,14 +45,11 @@ async function checkCooldown(identifier) {
 async function recordFailedAttempt(identifier) {
   try {
     const now = new Date();
-    const q = await pool.query(
-      "SELECT failed_count, locked_until FROM login_attempts WHERE identifier = $1",
-      [identifier]
-    );
+    const row = await loginAttemptRepository.findByIdentifier(identifier);
 
     let newCount = 1;
-    if (q.rows.length > 0) {
-      newCount = (q.rows[0].failed_count || 0) + 1;
+    if (row) {
+      newCount = (row.failed_count || 0) + 1;
     }
 
     let lockSeconds = 0;
@@ -74,15 +66,12 @@ async function recordFailedAttempt(identifier) {
       lockedUntil = new Date(now.getTime() + lockSeconds * 1000);
     }
 
-    await pool.query(
-      `INSERT INTO login_attempts (identifier, failed_count, first_failed_at, last_failed_at, locked_until)
-       VALUES ($1, $2, $3, $3, $4)
-       ON CONFLICT (identifier) DO UPDATE
-       SET failed_count = $2,
-           last_failed_at = $3,
-           locked_until = $4`,
-      [identifier, newCount, now, lockedUntil]
-    );
+    await loginAttemptRepository.saveAttempt({
+      identifier,
+      failedCount: newCount,
+      attemptedAt: now,
+      lockedUntil,
+    });
 
     return {
       locked: lockSeconds > 0,
@@ -97,7 +86,7 @@ async function recordFailedAttempt(identifier) {
 
 async function clearCooldown(identifier) {
   try {
-    await pool.query("DELETE FROM login_attempts WHERE identifier = $1", [identifier]);
+    await loginAttemptRepository.deleteByIdentifier(identifier);
   } catch (err) {
     console.error("Ratelimit clear error:", err);
   }

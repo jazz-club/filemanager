@@ -1,0 +1,210 @@
+<nav class="navbar navbar-expand navbar-light bg-white mb-3 shadow-sm">
+  <div class="container-lg">
+    <a class="navbar-brand fw-bold d-flex align-items-center gap-2" href="/vault">
+      <span>PinkBox</span>
+      <span
+        class="brand-heart-emoji"
+        style="color: #ff3385; font-size: 1.15rem; line-height: 1; user-select: none"
+        >❤︎</span
+      >
+    </a>
+    <div class="d-flex align-items-center gap-2">
+      <span class="navbar-text small d-none d-sm-inline"
+        >Logged in as
+        <img
+          src="/src/assets/icons/lib/SVG/regular/user.svg"
+          width="14"
+          height="14"
+          alt=""
+          style="margin-right: 4px; vertical-align: -2px"
+        /><b id="whoami">...</b></span
+      >
+
+      <button
+        class="btn btn-outline-dark d-flex align-items-center justify-content-center p-2"
+        type="button"
+        data-bs-toggle="offcanvas"
+        data-bs-target="#settingsOffcanvas"
+        aria-controls="settingsOffcanvas"
+        title="Menu & Settings"
+      >
+        <img
+          src="/src/assets/icons/lib/SVG/regular/bars.svg"
+          width="18"
+          height="18"
+          alt="Menu"
+          style="object-fit: contain"
+        />
+      </button>
+    </div>
+  </div>
+</nav>
+<div
+  class="offcanvas offcanvas-end"
+  tabindex="-1"
+  id="settingsOffcanvas"
+  aria-labelledby="settingsOffcanvasLabel"
+>
+  <div class="offcanvas-header border-bottom">
+    <h5 class="offcanvas-title fw-bold" id="settingsOffcanvasLabel">PinkBox Menu</h5>
+    <button
+      type="button"
+      class="btn-close-custom ms-auto"
+      data-bs-dismiss="offcanvas"
+      aria-label="Close"
+      title="Close Menu"
+    >
+      ✕
+    </button>
+  </div>
+  <div class="offcanvas-body d-flex flex-column justify-content-between p-3">
+    <div>
+      <div class="small text-muted mb-3 d-sm-none pb-2 border-bottom">
+        Logged in as
+        <img
+          src="/src/assets/icons/lib/SVG/regular/user.svg"
+          width="14"
+          height="14"
+          alt=""
+          style="margin-right: 4px; vertical-align: -2px"
+        /><b class="whoami-mobile">...</b>
+      </div>
+      <div class="card shadow-sm border-0 mb-4 p-3 bg-light">
+        <div class="d-flex justify-content-between align-items-center mb-1">
+          <span class="small fw-bold">Vault Storage Usage</span>
+          <span class="small text-muted" id="storage-usage-text">Calculating...</span>
+        </div>
+        <div class="progress mb-2" style="height: 10px" id="storage-bar">
+          <div
+            class="progress-bar bg-primary"
+            role="progressbar"
+            id="storage-bar-img"
+            style="width: 0%"
+            title="Images"
+          ></div>
+          <div
+            class="progress-bar bg-success"
+            role="progressbar"
+            id="storage-bar-video"
+            style="width: 0%"
+            title="Videos"
+          ></div>
+          <div
+            class="progress-bar bg-info"
+            role="progressbar"
+            id="storage-bar-audio"
+            style="width: 0%"
+            title="Audio"
+          ></div>
+          <div
+            class="progress-bar bg-warning"
+            role="progressbar"
+            id="storage-bar-doc"
+            style="width: 0%"
+            title="Documents"
+          ></div>
+          <div
+            class="progress-bar bg-secondary"
+            role="progressbar"
+            id="storage-bar-other"
+            style="width: 0%"
+            title="Other"
+          ></div>
+        </div>
+        <div class="d-flex flex-column gap-1 small text-muted">
+          <div class="d-flex justify-content-between">
+            <span><span class="badge bg-primary me-1">&nbsp;</span>Images:</span>
+            <b id="size-img">0 B</b>
+          </div>
+          <div class="d-flex justify-content-between">
+            <span><span class="badge bg-success me-1">&nbsp;</span>Videos:</span>
+            <b id="size-video">0 B</b>
+          </div>
+          <div class="d-flex justify-content-between">
+            <span><span class="badge bg-info me-1">&nbsp;</span>Audio:</span>
+            <b id="size-audio">0 B</b>
+          </div>
+          <div class="d-flex justify-content-between">
+            <span><span class="badge bg-warning me-1">&nbsp;</span>Documents:</span>
+            <b id="size-doc">0 B</b>
+          </div>
+          <div class="d-flex justify-content-between">
+            <span><span class="badge bg-secondary me-1">&nbsp;</span>Other:</span>
+            <b id="size-other">0 B</b>
+          </div>
+        </div>
+      </div>
+
+      <div class="d-grid gap-2 mb-4">
+        <button
+          id="export-all-btn"
+          class="btn btn-white text-start d-flex align-items-center gap-2"
+        >
+          <img
+            src="/src/assets/icons/lib/SVG/regular/save.svg"
+            width="16"
+            height="16"
+            alt=""
+            style="object-fit: contain"
+          />
+          <span>Export Vault as .zip</span>
+        </button>
+        <button
+          id="menu-share-stats-btn"
+          class="btn btn-white text-start d-flex align-items-center gap-2"
+        >
+          <img
+            src="/src/assets/icons/lib/SVG/regular/globe.svg"
+            width="16"
+            height="16"
+            alt=""
+            style="object-fit: contain"
+          />
+          <span>Share Statistics</span>
+        </button>
+        <button
+          id="open-change-pw-btn"
+          class="btn btn-white text-start d-flex align-items-center gap-2"
+        >
+          <img
+            src="/src/assets/icons/lib/SVG/regular/lock.svg"
+            width="16"
+            height="16"
+            alt=""
+            style="object-fit: contain"
+          />
+          <span>Change Password</span>
+        </button>
+      </div>
+    </div>
+
+    <div class="border-top pt-3 d-grid gap-2">
+      <button
+        id="logout-btn"
+        class="btn btn-white d-flex align-items-center justify-content-center gap-2"
+      >
+        <img
+          src="/src/assets/icons/lib/SVG/regular/lock-open.svg"
+          width="16"
+          height="16"
+          alt=""
+          style="object-fit: contain"
+        />
+        <span>Logout</span>
+      </button>
+      <button
+        id="open-delete-account-btn"
+        class="btn btn-outline-danger d-flex align-items-center justify-content-center gap-2"
+      >
+        <img
+          src="/src/assets/icons/lib/SVG/regular/trash.svg"
+          width="16"
+          height="16"
+          alt=""
+          style="object-fit: contain"
+        />
+        <span>Delete Account</span>
+      </button>
+    </div>
+  </div>
+</div>

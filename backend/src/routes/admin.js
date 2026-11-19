@@ -1,5 +1,5 @@
 const { Router } = require("express");
-const { pool } = require("../db");
+const { userRepository, fileRepository, folderRepository, settingsRepository } = require("../db");
 const { deleteObject } = require("../storage");
 const { getClientIp, checkCooldown, recordFailedAttempt, clearCooldown } = require("../ratelimit");
 const logger = require("../logger");
@@ -46,7 +46,7 @@ router.post("/login", async (req, res) => {
       details: { retryAfterSeconds: cooldown.retryAfterSeconds },
     });
     return res.status(429).json({
-      error: `ey man wat da hell at least wait ${cooldown.retryAfterSeconds}s.`,
+      error: `Too many failed attempts. Cooldown active for ${cooldown.retryAfterSeconds}s.`,
       retryAfter: cooldown.retryAfterSeconds,
     });
   }
@@ -93,7 +93,7 @@ router.post("/login", async (req, res) => {
     if (lockStatus.locked) {
       res.setHeader("Retry-After", lockStatus.retryAfterSeconds);
       return res.status(429).json({
-        error: `cooldown active for ${lockStatus.retryAfterSeconds}s.`,
+        error: `Cooldown active for ${lockStatus.retryAfterSeconds}s.`,
         retryAfter: lockStatus.retryAfterSeconds,
       });
     }
@@ -121,17 +121,17 @@ router.post("/logout", (req, res) => {
 
 router.get("/stats", requireAdmin, async (req, res) => {
   try {
-    const userCount = await pool.query("SELECT COUNT(*) AS count FROM users");
-    const fileStats = await pool.query(
-      "SELECT COUNT(*) AS count, COALESCE(SUM(size_bytes), 0) AS total_bytes FROM files"
-    );
-    const folderCount = await pool.query("SELECT COUNT(*) AS count FROM folders");
+    const [totalUsers, fileStats, totalFolders] = await Promise.all([
+      userRepository.getUserCount(),
+      fileRepository.getGlobalFileStats(),
+      folderRepository.getFolderCount(),
+    ]);
 
     res.json({
-      totalUsers: parseInt(userCount.rows[0].count, 10),
-      totalFiles: parseInt(fileStats.rows[0].count, 10),
-      totalBytes: parseInt(fileStats.rows[0].total_bytes, 10),
-      totalFolders: parseInt(folderCount.rows[0].count, 10),
+      totalUsers,
+      totalFiles: fileStats.totalFiles,
+      totalBytes: fileStats.totalBytes,
+      totalFolders,
       status: "Healthy",
     });
   } catch (err) {
@@ -142,10 +142,7 @@ router.get("/stats", requireAdmin, async (req, res) => {
 
 router.get("/settings", requireAdmin, async (req, res) => {
   try {
-    const q = await pool.query(
-      "SELECT key, value FROM system_settings WHERE key = 'allow_registration'"
-    );
-    const allowReg = q.rows.length === 0 || q.rows[0].value === "true";
+    const allowReg = await settingsRepository.isRegistrationAllowed();
     res.json({ allowRegistration: allowReg });
   } catch (err) {
     console.error("Admin get settings error:", err);
@@ -160,13 +157,7 @@ router.patch("/settings", requireAdmin, async (req, res) => {
       return res.status(400).json({ error: "allowRegistration boolean required" });
     }
 
-    const strVal = allowRegistration ? "true" : "false";
-    await pool.query(
-      `INSERT INTO system_settings (key, value, updated_at) 
-       VALUES ('allow_registration', $1, NOW()) 
-       ON CONFLICT (key) DO UPDATE SET value = $1, updated_at = NOW()`,
-      [strVal]
-    );
+    await settingsRepository.setRegistrationAllowed(allowRegistration);
 
     res.json({
       message: `New account registrations are now ${allowRegistration ? "ENABLED" : "DISABLED"}.`,
@@ -180,21 +171,9 @@ router.patch("/settings", requireAdmin, async (req, res) => {
 
 router.get("/users", requireAdmin, async (req, res) => {
   try {
-    const q = await pool.query(`
-      SELECT 
-        u.id,
-        u.username AS pseudonym,
-        u.created_at,
-        COUNT(f.id) AS file_count,
-        COALESCE(SUM(f.size_bytes), 0) AS total_bytes,
-        (SELECT COUNT(*) FROM folders fo WHERE fo.owner_id = u.id) AS folder_count
-      FROM users u
-      LEFT JOIN files f ON f.owner_id = u.id
-      GROUP BY u.id, u.username, u.created_at
-      ORDER BY u.id ASC
-    `);
+    const rows = await userRepository.getAllUsersWithStats();
 
-    const users = q.rows.map((row) => ({
+    const users = rows.map((row) => ({
       id: row.id,
       pseudonym: row.pseudonym || `user_${row.id}`,
       createdAt: row.created_at,
@@ -215,21 +194,17 @@ router.delete("/users/:id", requireAdmin, async (req, res) => {
     const targetUserId = parseInt(req.params.id, 10);
     if (!targetUserId) return res.status(400).json({ error: "Invalid user ID" });
 
-    const filesQ = await pool.query("SELECT storage_key FROM files WHERE owner_id = $1", [
-      targetUserId,
-    ]);
-    for (const f of filesQ.rows) {
+    const storageKeys = await fileRepository.getStorageKeysByOwner(targetUserId);
+    for (const storageKey of storageKeys) {
       try {
-        await deleteObject(f.storage_key);
+        await deleteObject(storageKey);
       } catch (minioErr) {
-        console.error("Error deleting MD minIO file:", f.storage_key, minioErr);
+        console.error("Error deleting MD minIO file:", storageKey, minioErr);
       }
     }
 
-    const delResult = await pool.query("DELETE FROM users WHERE id = $1 RETURNING id", [
-      targetUserId,
-    ]);
-    if (delResult.rows.length === 0) {
+    const deleted = await userRepository.deleteUser(targetUserId);
+    if (!deleted) {
       return res.status(404).json({ error: "User not found" });
     }
 

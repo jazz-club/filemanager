@@ -1,0 +1,441 @@
+<button
+  id="notification-tray-toggle-btn"
+  class="btn btn-sm btn-white position-fixed bottom-0 end-0 m-3 d-flex align-items-center gap-1 shadow-sm"
+  style="z-index: 1055; border: 2px solid #000; border-radius: 20px; padding: 0.35rem 0.75rem"
+  title="Toggle Activity & Notifications"
+>
+  <img
+    src="/src/assets/icons/lib/SVG/regular/bell.svg"
+    width="16"
+    height="16"
+    style="object-fit: contain"
+    alt=""
+  />
+  <span class="small fw-bold">Activity</span>
+  <span
+    id="notification-unread-dot"
+    class="badge bg-danger rounded-pill p-1 d-none"
+    style="font-size: 0.5rem"
+    >•</span
+  >
+</button>
+<div
+  id="upload-tray"
+  class="card shadow-lg border-2 border-dark d-none position-fixed bottom-0 end-0 m-3"
+  style="width: 380px; max-width: 90vw; z-index: 1060; border-radius: 10px; background: #fff"
+>
+  <div
+    class="card-header bg-white py-2 px-3 d-flex justify-content-between align-items-center border-bottom"
+  >
+    <div class="d-flex align-items-center gap-1">
+      <img
+        src="/src/assets/icons/lib/SVG/regular/bell.svg"
+        width="16"
+        height="16"
+        style="object-fit: contain"
+        alt=""
+      />
+      <span class="small fw-bold">Activity &amp; Notifications</span>
+      <span
+        id="upload-tray-count"
+        class="badge bg-dark rounded-pill ms-1 d-none"
+        style="font-size: 0.65rem"
+        >0</span
+      >
+    </div>
+    <div class="d-flex align-items-center gap-2">
+      <button
+        type="button"
+        class="btn btn-sm btn-white border border-dark py-0 px-2 fw-bold"
+        id="clear-activity-btn"
+        style="font-size: 0.72rem; line-height: 1.5"
+        title="Clear notifications"
+      >
+        Clear
+      </button>
+      <button
+        type="button"
+        class="btn-close-custom"
+        id="close-upload-tray-btn"
+        title="Hide Activity Tray"
+      >
+        ✕
+      </button>
+    </div>
+  </div>
+  <div
+    id="notification-tray-messages"
+    class="p-2 border-bottom d-none"
+    style="max-height: 120px; overflow-y: auto"
+  ></div>
+  <div
+    class="card-body p-2"
+    id="upload-tray-items"
+    style="max-height: 250px; overflow-y: auto"
+  ></div>
+  <div id="tray-empty-placeholder" class="text-center py-4 text-muted small">
+    <span
+      class="d-block mb-1 font-monospace fw-bold whimsical-float"
+      style="font-size: 1.4rem; color: #ff69b4; line-height: 1"
+      >:3</span
+    >
+    nun here for now
+  </div>
+</div>
+<div
+  id="selection-dock"
+  class="card shadow-lg border-2 border-dark d-none position-fixed start-50 translate-middle-x"
+  style="
+    bottom: 25px;
+    z-index: 1055;
+    background: #ffffff;
+    border-radius: 8px;
+    box-shadow: 4px 4px 0 0 #000000 !important;
+  "
+>
+  <div class="card-body p-2 px-3 selection-dock-body">
+    <div class="selection-dock-header">
+      <span class="fw-bold font-monospace me-1" id="selection-dock-info">0 selected</span>
+      <button
+        id="batch-select-all-dock-btn"
+        class="btn btn-sm btn-white border-dark px-2 fw-bold"
+        title="Select All"
+      >
+        <img
+          src="/src/assets/icons/lib/SVG/regular/check.svg"
+          width="12"
+          height="12"
+          style="vertical-align: -1px; margin-right: 4px"
+          alt=""
+        />Select All
+      </button>
+      <button
+        id="batch-deselect-dock-btn"
+        class="btn btn-sm btn-white border-dark px-2 fw-bold"
+        title="Deselect All"
+      >
+        <img
+          src="/src/assets/icons/lib/SVG/regular/times.svg"
+          width="12"
+          height="12"
+          style="vertical-align: -1px; margin-right: 4px"
+          alt=""
+        />Deselect
+      </button>
+    </div>
+    <div class="selection-dock-actions">
+      <button
+        id="batch-share-btn"
+        class="btn btn-sm btn-white border-dark"
+        title="Share selected items"
+      >
+        <img
+          src="/src/assets/icons/lib/SVG/regular/share.svg"
+          width="14"
+          height="14"
+          style="vertical-align: -2px; margin-right: 4px"
+          alt=""
+        />Share
+      </button>
+      <button
+        id="batch-download-btn"
+        class="btn btn-sm btn-white border-dark"
+        title="Download selected as ZIP"
+      >
+        <img
+          src="/src/assets/icons/lib/SVG/regular/download.svg"
+          width="14"
+          height="14"
+          style="vertical-align: -2px; margin-right: 4px"
+          alt=""
+        />Download
+      </button>
+      <button id="batch-move-btn" class="btn btn-sm btn-white border-dark" title="Move selected">
+        <img
+          src="/src/assets/icons/lib/SVG/regular/arrow-right.svg"
+          width="14"
+          height="14"
+          style="vertical-align: -2px; margin-right: 4px"
+          alt=""
+        />Move
+      </button>
+      <button
+        id="batch-delete-btn"
+        class="btn btn-sm btn-danger border-dark"
+        title="Delete selected"
+      >
+        <img
+          src="/src/assets/icons/lib/SVG/regular/trash.svg"
+          width="14"
+          height="14"
+          style="vertical-align: -2px; margin-right: 4px"
+          alt=""
+        />Delete
+      </button>
+    </div>
+  </div>
+</div>
+<div
+  id="audio-dock-player"
+  class="card shadow-lg border-2 border-dark d-none position-fixed bottom-0 start-50 translate-middle-x mb-3"
+  style="width: 95%; max-width: 650px; z-index: 1050; border-radius: 12px; background: #fff"
+>
+  <div class="card-body p-2 px-3">
+    <audio id="audio-dock-el" preload="metadata" class="d-none"></audio>
+
+    <div class="d-flex justify-content-between align-items-center mb-1">
+      <div class="d-flex align-items-center gap-2 text-truncate me-2" style="max-width: 85%">
+        <span
+          class="small fw-bold text-truncate d-flex align-items-center gap-1"
+          id="audio-dock-title"
+        >
+          <img
+            src="/src/assets/icons/lib/SVG/regular/headphones.svg"
+            width="16"
+            height="16"
+            style="object-fit: contain; flex-shrink: 0"
+            alt=""
+          />
+          <span>Music Player</span>
+        </span>
+        <span id="audio-track-counter" class="player-counter-badge">1 / 1</span>
+      </div>
+      <div class="d-flex align-items-center gap-1">
+        <button
+          type="button"
+          class="btn-close-custom"
+          id="audio-dock-minimize"
+          title="Minimize Audio"
+          style="font-size: 14px; width: 22px; height: 22px; line-height: 1"
+        >
+          🗕
+        </button>
+        <button
+          type="button"
+          class="btn-close-custom"
+          id="audio-dock-close"
+          title="Close Player"
+          style="font-size: 11px; width: 22px; height: 22px; line-height: 1"
+        >
+          ✕
+        </button>
+      </div>
+    </div>
+
+    <div
+      class="audio-progress-wrap my-1"
+      id="audio-progress-wrap"
+      style="
+        cursor: pointer;
+        height: 10px;
+        background: #f1f5f9;
+        border-radius: 5px;
+        border: 2px solid #000;
+        position: relative;
+        user-select: none;
+        touch-action: none;
+      "
+    >
+      <div
+        id="audio-progress-fill"
+        style="
+          height: 100%;
+          width: 0%;
+          background: #ff69b4;
+          border-radius: 3px;
+          position: relative;
+          pointer-events: none;
+        "
+      ></div>
+      <div
+        id="audio-progress-handle"
+        style="
+          position: absolute;
+          left: 0px;
+          top: 50%;
+          transform: translateY(-50%);
+          width: 14px;
+          height: 14px;
+          background-color: #ffffff;
+          border: 2px solid #000000;
+          border-radius: 50%;
+          box-shadow: 1px 1px 0 0 #000000;
+          pointer-events: none;
+        "
+      ></div>
+    </div>
+    <div
+      class="d-flex justify-content-between small text-muted font-monospace"
+      style="font-size: 0.75rem"
+    >
+      <span id="audio-current-time">0:00</span>
+      <span id="audio-total-time">0:00</span>
+    </div>
+
+    <div class="d-flex align-items-center justify-content-between flex-wrap gap-1 mt-1">
+      <div class="d-flex align-items-center gap-1">
+        <button
+          type="button"
+          class="btn btn-sm btn-white py-1 px-2"
+          id="audio-prev-btn"
+          title="Previous Track"
+        >
+          |&lt; Prev
+        </button>
+        <button
+          type="button"
+          class="btn btn-sm btn-white py-1 px-2"
+          id="audio-rwd-btn"
+          title="Rewind 10s"
+        >
+          -10s
+        </button>
+        <button
+          type="button"
+          class="btn btn-sm btn-primary py-1 px-3 fw-bold"
+          id="audio-play-pause-btn"
+          style="min-width: 75px"
+        >
+          Play
+        </button>
+        <button
+          type="button"
+          class="btn btn-sm btn-white py-1 px-2"
+          id="audio-fwd-btn"
+          title="Forward 10s"
+        >
+          +10s
+        </button>
+        <button
+          type="button"
+          class="btn btn-sm btn-white py-1 px-2"
+          id="audio-next-btn"
+          title="Next Track"
+        >
+          Next &gt;|
+        </button>
+      </div>
+      <div class="d-flex align-items-center gap-2 ms-auto">
+        <button type="button" class="btn btn-sm btn-white py-0 px-2" id="audio-mute-btn">
+          Mute
+        </button>
+        <input
+          type="range"
+          class="form-range"
+          id="audio-volume-slider"
+          min="0"
+          max="1"
+          step="0.05"
+          value="1"
+          style="width: 75px"
+          title="Volume"
+        />
+      </div>
+    </div>
+  </div>
+</div>
+<div
+  id="floating-video-mini"
+  class="card shadow-lg border-2 border-dark d-none position-fixed bottom-0 end-0 m-3"
+  style="width: 280px; z-index: 2050; border-radius: 8px; background: #ffffff"
+>
+  <div
+    class="card-header bg-white py-1 px-2 border-bottom border-dark d-flex justify-content-between align-items-center"
+  >
+    <span
+      class="small fw-bold text-truncate me-1 text-dark"
+      id="video-mini-title"
+      style="font-size: 0.75rem"
+      >Video</span
+    >
+    <div class="d-flex align-items-center gap-1">
+      <button
+        type="button"
+        class="btn btn-sm btn-white border border-dark p-0 px-1 fw-bold"
+        id="video-mini-expand-btn"
+        title="Expand Video"
+        style="font-size: 0.72rem; line-height: 1.2"
+      >
+        🗖
+      </button>
+      <button
+        type="button"
+        class="btn btn-sm btn-white border border-dark p-0 px-1 fw-bold"
+        id="video-mini-close-btn"
+        title="Close"
+        style="font-size: 0.72rem; line-height: 1.2"
+      >
+        ×
+      </button>
+    </div>
+  </div>
+  <div
+    class="p-0 text-center bg-black position-relative"
+    style="height: 155px; overflow: hidden"
+    id="video-mini-viewport"
+  ></div>
+  <div
+    class="py-1 px-2 d-flex align-items-center bg-white border-top border-dark"
+    style="font-size: 0.75rem"
+  >
+    <button
+      type="button"
+      class="btn btn-sm btn-primary py-0 px-2 fw-bold"
+      id="video-mini-play-btn"
+      style="font-size: 0.72rem"
+    >
+      Play
+    </button>
+  </div>
+</div>
+<div
+  id="audio-mini-pill"
+  class="card shadow border-2 border-dark d-none position-fixed bottom-0 start-50 translate-middle-x mb-3"
+  style="z-index: 1050; border-radius: 25px; background: #ffffff; padding: 4px 14px"
+>
+  <div class="d-flex align-items-center gap-2">
+    <img
+      id="audio-mini-icon"
+      src="/src/assets/icons/lib/SVG/regular/headphones.svg"
+      width="16"
+      height="16"
+      style="object-fit: contain; flex-shrink: 0"
+      alt=""
+    />
+    <span
+      class="small fw-bold text-truncate"
+      id="audio-mini-title"
+      style="max-width: 180px; font-size: 0.8rem"
+      >Music</span
+    >
+    <button
+      type="button"
+      class="btn btn-sm btn-primary py-0 px-2 fw-bold"
+      id="audio-mini-play-btn"
+      style="font-size: 0.72rem"
+    >
+      Pause
+    </button>
+    <button
+      type="button"
+      class="btn btn-sm btn-white border border-dark py-0 px-2 fw-bold"
+      id="audio-mini-expand-btn"
+      title="Expand Player"
+      style="font-size: 0.72rem"
+    >
+      🗖
+    </button>
+    <button
+      type="button"
+      class="btn btn-sm btn-white border border-dark py-0 px-1 fw-bold"
+      id="audio-mini-close-btn"
+      title="Close Player"
+      style="font-size: 0.72rem"
+    >
+      ×
+    </button>
+  </div>
+</div>
+<div id="retro-context-menu">
+  <div id="context-menu-items"></div>
+</div>

@@ -1,0 +1,96 @@
+<div class="modal fade" id="imageModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div
+      class="modal-content border-2 border-dark"
+      style="
+        background-color: #ffffff !important;
+        color: #000000 !important;
+        box-shadow: 4px 4px 0 0 #000000;
+        border-radius: 8px;
+        overflow: hidden;
+      "
+    >
+      <div
+        class="modal-header border-bottom border-dark d-flex justify-content-between align-items-center w-100"
+        style="background-color: #ffffff !important"
+      >
+        <h5
+          class="modal-title text-truncate flex-grow-1 me-3 mb-0 fw-bold text-dark"
+          id="image-modal-title"
+        >
+          Image Viewer
+        </h5>
+        <button
+          type="button"
+          class="btn-close-custom ms-auto flex-shrink-0"
+          data-bs-dismiss="modal"
+          id="image-modal-close"
+          aria-label="Close"
+          title="Close"
+        >
+          ✕
+        </button>
+      </div>
+      <div
+        class="modal-body p-0 text-center"
+        style="
+          max-height: 80vh;
+          overflow: auto;
+          background-color: #ffffff !important;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+        "
+      >
+        <img
+          id="image-viewer-el"
+          src=""
+          alt="Preview"
+          class="img-fluid"
+          style="
+            max-height: 75vh;
+            max-width: 100%;
+            width: auto;
+            height: auto;
+            display: block;
+            margin: 0 auto;
+          "
+        />
+      </div>
+      <div
+        class="modal-footer border-top border-dark justify-content-between"
+        style="background-color: #ffffff !important"
+      >
+        <button
+          type="button"
+          class="btn btn-sm btn-white border-dark fw-bold px-3 d-flex align-items-center gap-1"
+          id="image-prev-btn"
+        >
+          <img
+            src="/src/assets/icons/lib/SVG/regular/arrow-left.svg"
+            width="12"
+            height="12"
+            style="object-fit: contain"
+            alt=""
+          />
+          <span>Previous</span>
+        </button>
+        <span id="image-counter-text" class="player-counter-badge">1 / 1</span>
+        <button
+          type="button"
+          class="btn btn-sm btn-white border-dark fw-bold px-3 d-flex align-items-center gap-1"
+          id="image-next-btn"
+        >
+          <span>Next</span>
+          <img
+            src="/src/assets/icons/lib/SVG/regular/arrow-right.svg"
+            width="12"
+            height="12"
+            style="object-fit: contain"
+            alt=""
+          />
+        </button>
+      </div>
+    </div>
+  </div>
+</div>

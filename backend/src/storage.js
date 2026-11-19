@@ -37,4 +37,28 @@ async function deleteObject(key) {
   await minioClient.removeObject(BUCKET, key);
 }
 
-module.exports = { initStorage, putObject, getObject, deleteObject };
+async function copyObject(sourceKey, targetKey) {
+  const conds = new Minio.CopyConditions();
+  return new Promise((resolve, reject) => {
+    minioClient.copyObject(
+      BUCKET,
+      targetKey,
+      `/${BUCKET}/${sourceKey}`,
+      conds,
+      async (err, data) => {
+        if (err) {
+          try {
+            const buf = await getObject(sourceKey);
+            await putObject(targetKey, buf);
+            return resolve();
+          } catch (copyErr) {
+            return reject(copyErr);
+          }
+        }
+        resolve(data);
+      }
+    );
+  });
+}
+
+module.exports = { initStorage, putObject, getObject, deleteObject, copyObject };

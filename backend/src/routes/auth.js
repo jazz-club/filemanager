@@ -1,7 +1,7 @@
 const { Router } = require("express");
 const crypto = require("crypto");
 const bcrypt = require("bcrypt");
-const { pool } = require("../db");
+const { userRepository, settingsRepository, fileRepository } = require("../db");
 const { encrypt, decrypt } = require("../crypto");
 const { deleteObject } = require("../storage");
 const { getClientIp, checkCooldown, recordFailedAttempt, clearCooldown } = require("../ratelimit");
@@ -9,12 +9,6 @@ const logger = require("../logger");
 const { generateCsrfToken } = require("../csrf");
 
 const router = Router();
-
-/* 
-	not too particularly sure about email-less auth but i am not dealing with mail servers
-	i guess no forgot password flows? kinda would be cool to run a blacbox service where data just goes to the abyss and cant be recovered if you dont want it to
-	maybe even no admin pages, idk
-*/
 
 function hashUsername(username) {
   const salt = process.env.ENCRYPTION_SALT || "vault_salt";
@@ -67,10 +61,7 @@ router.get("/csrf", (req, res) => {
 
 router.get("/registration-status", async (req, res) => {
   try {
-    const q = await pool.query(
-      "SELECT value FROM system_settings WHERE key = 'allow_registration'"
-    );
-    const allowed = q.rows.length === 0 || q.rows[0].value === "true";
+    const allowed = await settingsRepository.isRegistrationAllowed();
     res.json({ allowRegistration: allowed });
   } catch (err) {
     logger.error("Registration status check error", err);
@@ -80,10 +71,7 @@ router.get("/registration-status", async (req, res) => {
 
 router.post("/register", async (req, res) => {
   try {
-    const regCheck = await pool.query(
-      "SELECT value FROM system_settings WHERE key = 'allow_registration'"
-    );
-    if (regCheck.rows.length > 0 && regCheck.rows[0].value !== "true") {
+    if (!(await settingsRepository.isRegistrationAllowed())) {
       logger.audit({
         event: "AUTH_REGISTER_DISABLED",
         req,
@@ -109,11 +97,8 @@ router.post("/register", async (req, res) => {
     const encUser = encryptUsername(cleanUser);
     const maskedName = "usr_" + uHash.slice(0, 10);
 
-    const existing = await pool.query(
-      "SELECT id FROM users WHERE username_hash = $1 OR username = $2",
-      [uHash, cleanUser]
-    );
-    if (existing.rows.length > 0) {
+    const usernameExists = await userRepository.checkUsernameExists(cleanUser, uHash);
+    if (usernameExists) {
       logger.audit({
         event: "AUTH_REGISTER_CONFLICT",
         req,
@@ -126,16 +111,13 @@ router.post("/register", async (req, res) => {
     }
 
     const passHash = await bcrypt.hash(password, 12);
-    const result = await pool.query(
-      "INSERT INTO users (username, password, username_hash, encrypted_username) VALUES ($1, $2, $3, $4) RETURNING id",
-      [maskedName, passHash, uHash, encUser]
-    );
+    const createdUser = await userRepository.createUser({ maskedName, passHash, uHash, encUser });
 
-    const newUserId = result.rows[0].id;
+    const newUserId = createdUser.id;
 
     req.session.regenerate((err) => {
       if (err) {
-        logger.error("session error during registration", err);
+        logger.error("Session regeneration error during registration", err);
         return res.status(500).json({ error: "Session creation error" });
       }
 
@@ -200,12 +182,9 @@ router.post("/login", async (req, res) => {
       });
     }
 
-    let result = await pool.query("SELECT * FROM users WHERE username_hash = $1", [uHash]);
-    if (result.rows.length === 0) {
-      result = await pool.query("SELECT * FROM users WHERE username = $1", [cleanUser]);
-    }
+    const user = await userRepository.findByUsernameOrHash(cleanUser, uHash);
 
-    if (result.rows.length === 0) {
+    if (!user) {
       const lockStatus = await recordFailedAttempt(attemptKey);
       logger.audit({
         event: "AUTH_LOGIN_FAILURE",
@@ -225,7 +204,6 @@ router.post("/login", async (req, res) => {
       return res.status(401).json({ error: "Invalid credentials" });
     }
 
-    const user = result.rows[0];
     const valid = await bcrypt.compare(password, user.password);
     if (!valid) {
       const lockStatus = await recordFailedAttempt(attemptKey);
@@ -255,15 +233,16 @@ router.post("/login", async (req, res) => {
     }
 
     if (!user.username_hash) {
-      await pool.query(
-        "UPDATE users SET username_hash = $1, encrypted_username = $2, username = $3 WHERE id = $4",
-        [uHash, encryptUsername(cleanUser), "usr_" + uHash.slice(0, 10), user.id]
-      );
+      await userRepository.updatePrivacyInfo(user.id, {
+        uHash,
+        encUser: encryptUsername(cleanUser),
+        maskedName: "usr_" + uHash.slice(0, 10),
+      });
     }
 
     req.session.regenerate((err) => {
       if (err) {
-        logger.error("Session error on login", err);
+        logger.error("Session regenerate error on login", err);
         return res.status(500).json({ error: "Session error" });
       }
       req.session.userId = user.id;
@@ -302,7 +281,7 @@ router.post("/logout", (req, res) => {
   const userId = req.session ? req.session.userId : null;
   req.session.destroy((err) => {
     if (err) {
-      logger.error("session destroy error", err);
+      logger.error("Logout session destroy error", err);
       return res.status(500).json({ error: "Could not logout" });
     }
     res.clearCookie("connect.sid");
@@ -317,7 +296,6 @@ router.post("/logout", (req, res) => {
   });
 });
 
-// i know for a fact this isnt sufficient but i cant remember why
 router.get("/me", (req, res) => {
   if (!req.session || !req.session.userId) {
     return res.status(401).json({ error: "Not authenticated" });
@@ -354,12 +332,10 @@ router.post("/change-password", requireAuth, async (req, res) => {
       });
     }
 
-    const userQ = await pool.query("SELECT password FROM users WHERE id = $1", [
-      req.session.userId,
-    ]);
-    if (userQ.rows.length === 0) return res.status(404).json({ error: "User not found" });
+    const user = await userRepository.findById(req.session.userId);
+    if (!user) return res.status(404).json({ error: "User not found" });
 
-    const valid = await bcrypt.compare(currentPassword, userQ.rows[0].password);
+    const valid = await bcrypt.compare(currentPassword, user.password);
     if (!valid) {
       const lockStatus = await recordFailedAttempt(attemptKey);
       logger.audit({
@@ -383,7 +359,7 @@ router.post("/change-password", requireAuth, async (req, res) => {
     await clearCooldown(attemptKey);
 
     const hash = await bcrypt.hash(newPassword, 12);
-    await pool.query("UPDATE users SET password = $1 WHERE id = $2", [hash, req.session.userId]);
+    await userRepository.updatePassword(req.session.userId, hash);
 
     logger.audit({
       event: "AUTH_PASSWORD_CHANGE_SUCCESS",
@@ -417,12 +393,10 @@ router.delete("/account", requireAuth, async (req, res) => {
       });
     }
 
-    const userQ = await pool.query("SELECT password FROM users WHERE id = $1", [
-      req.session.userId,
-    ]);
-    if (userQ.rows.length === 0) return res.status(404).json({ error: "User not found" });
+    const user = await userRepository.findById(req.session.userId);
+    if (!user) return res.status(404).json({ error: "User not found" });
 
-    const valid = await bcrypt.compare(password, userQ.rows[0].password);
+    const valid = await bcrypt.compare(password, user.password);
     if (!valid) {
       const lockStatus = await recordFailedAttempt(attemptKey);
       logger.audit({
@@ -446,18 +420,16 @@ router.delete("/account", requireAuth, async (req, res) => {
     await clearCooldown(attemptKey);
     const userIdToDelete = req.session.userId;
 
-    const filesQ = await pool.query("SELECT storage_key FROM files WHERE owner_id = $1", [
-      userIdToDelete,
-    ]);
-    for (const f of filesQ.rows) {
+    const storageKeys = await fileRepository.getStorageKeysByOwner(userIdToDelete);
+    for (const storageKey of storageKeys) {
       try {
-        await deleteObject(f.storage_key);
+        await deleteObject(storageKey);
       } catch (e) {
-        logger.error("Storage delete error for key: " + f.storage_key, e);
+        logger.error("Storage delete error for key: " + storageKey, e);
       }
     }
 
-    await pool.query("DELETE FROM users WHERE id = $1", [userIdToDelete]);
+    await userRepository.deleteUser(userIdToDelete);
 
     logger.audit({
       event: "AUTH_ACCOUNT_DELETE_SUCCESS",

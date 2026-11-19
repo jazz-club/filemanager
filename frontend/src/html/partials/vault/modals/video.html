@@ -1,0 +1,197 @@
+<div class="modal fade" id="videoModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-xl modal-dialog-centered">
+    <div
+      class="modal-content border-2 border-dark"
+      style="background-color: #ffffff !important; color: #000000 !important"
+    >
+      <div
+        class="modal-header border-bottom border-dark d-flex justify-content-between align-items-center w-100"
+        style="background-color: #ffffff !important"
+      >
+        <div
+          class="d-flex align-items-center gap-2 text-truncate flex-grow-1 me-3"
+          style="max-width: 85%"
+        >
+          <h5 class="modal-title text-truncate mb-0 fw-bold text-dark" id="video-modal-title">
+            Video Player
+          </h5>
+          <span id="video-counter-text" class="player-counter-badge">1 / 1</span>
+        </div>
+        <div class="d-flex align-items-center gap-1 ms-auto flex-shrink-0">
+          <button
+            type="button"
+            class="btn-close-custom"
+            id="video-modal-minimize"
+            title="Minimize Video"
+            style="font-size: 14px; font-weight: bold; line-height: 1"
+          >
+            🗕
+          </button>
+          <button
+            type="button"
+            class="btn-close-custom"
+            data-bs-dismiss="modal"
+            id="video-modal-close"
+            aria-label="Close"
+            title="Close"
+          >
+            ✕
+          </button>
+        </div>
+      </div>
+      <div
+        class="modal-body p-0 text-center position-relative"
+        style="
+          background-color: #ffffff !important;
+          overflow: hidden;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+        "
+      >
+        <video
+          id="video-player-el"
+          style="
+            max-height: 70vh;
+            max-width: 100%;
+            width: auto;
+            height: auto;
+            outline: none;
+            background: #ffffff;
+            cursor: pointer;
+            display: block;
+            margin: 0 auto;
+          "
+          preload="auto"
+        ></video>
+      </div>
+
+      <div
+        class="p-3 border-top border-dark"
+        id="video-custom-controls"
+        style="background-color: #ffffff !important; color: #000000 !important"
+      >
+        <div
+          class="video-progress-wrap my-1"
+          id="video-progress-wrap"
+          style="
+            cursor: pointer;
+            height: 10px;
+            background: #f1f5f9;
+            border-radius: 5px;
+            border: 2px solid #000000;
+            position: relative;
+          "
+        >
+          <div
+            id="video-progress-fill"
+            style="
+              height: 100%;
+              width: 0%;
+              background: #ff69b4;
+              border-radius: 3px;
+              position: relative;
+            "
+          >
+            <div
+              id="video-progress-handle"
+              style="
+                position: absolute;
+                right: -12px;
+                top: 50%;
+                transform: translateY(-50%);
+                width: 24px;
+                height: 24px;
+                background-color: #ffffff;
+                border: 2px solid #000000;
+                border-radius: 50%;
+                box-shadow: 2px 2px 0 0 #000000;
+                pointer-events: none;
+              "
+            ></div>
+          </div>
+        </div>
+
+        <div
+          class="d-flex justify-content-between small text-muted font-monospace mb-2"
+          style="font-size: 0.75rem"
+        >
+          <span id="video-current-time">0:00</span>
+          <span id="video-total-time">0:00</span>
+        </div>
+
+        <div class="d-flex align-items-center justify-content-between flex-wrap gap-2">
+          <div class="d-flex align-items-center gap-1">
+            <button
+              type="button"
+              class="btn btn-sm btn-white border border-dark py-1 px-2"
+              id="video-prev-btn"
+              title="Previous Video"
+            >
+              |&lt; Prev
+            </button>
+            <button
+              type="button"
+              class="btn btn-sm btn-white border border-dark py-1 px-2"
+              id="video-rwd-btn"
+              title="Rewind 10s"
+            >
+              -10s
+            </button>
+            <button
+              type="button"
+              class="btn btn-sm btn-primary py-1 px-3 fw-bold"
+              id="video-play-pause-btn"
+              style="min-width: 75px"
+            >
+              Play
+            </button>
+            <button
+              type="button"
+              class="btn btn-sm btn-white border border-dark py-1 px-2"
+              id="video-fwd-btn"
+              title="Forward 10s"
+            >
+              +10s
+            </button>
+            <button
+              type="button"
+              class="btn btn-sm btn-white border border-dark py-1 px-2"
+              id="video-next-btn"
+              title="Next Video"
+            >
+              Next &gt;|
+            </button>
+          </div>
+          <div class="d-flex align-items-center gap-2 ms-auto">
+            <button
+              type="button"
+              class="btn btn-sm btn-white border border-dark py-0 px-2"
+              id="video-mute-btn"
+            >
+              Mute
+            </button>
+            <input
+              type="range"
+              class="form-range"
+              id="video-volume-slider"
+              min="0"
+              max="1"
+              step="0.05"
+              value="1"
+              style="width: 75px"
+            />
+            <button
+              type="button"
+              class="btn btn-sm btn-white border border-dark py-0 px-2"
+              id="video-fullscreen-btn"
+              title="Toggle Fullscreen"
+            >
+              &#x26F6; Fullscreen
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

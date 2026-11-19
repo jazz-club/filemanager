@@ -1,10 +1,16 @@
+var urlParams = new URLSearchParams(window.location.search);
+var redirectParam = urlParams.get("redirect") || "/vault";
+if (!redirectParam.startsWith("/") || redirectParam.startsWith("//")) {
+  redirectParam = "/vault";
+}
+
 api("/auth/me").then(function (r) {
   if (r.ok) {
-    window.location.href = "/vault";
+    window.location.href = redirectParam;
   }
 });
 
-var mode = "login";
+var mode = urlParams.get("mode") === "register" ? "register" : "login";
 var allowRegistration = true;
 
 api("/auth/registration-status")
@@ -73,6 +79,10 @@ function setMode(newMode) {
   }
 }
 
+if (mode === "register") {
+  setMode("register");
+}
+
 var cooldownTimer = null;
 function startCooldown(seconds) {
   if (cooldownTimer) clearInterval(cooldownTimer);
@@ -136,7 +146,7 @@ authForm.onsubmit = function (e) {
         return;
       }
       submitBtn.disabled = false;
-      window.location.href = "/vault";
+      window.location.href = redirectParam;
     })
     .catch(function (err) {
       submitBtn.disabled = false;
