@@ -2,7 +2,7 @@ services:
   nginx:
     image: nginx:1.25-alpine
     ports:
-      - "443:443"
+      - "127.0.0.1:7272:443"
     volumes:
       - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
       - ./nginx/certs:/etc/nginx/certs:ro
@@ -62,7 +62,7 @@ services:
     volumes:
       - minio-data:/data
     ports:
-      - "9001:9001"
+      - "127.0.0.1:9001:9001"
     networks:
       - app-net
 
