@@ -866,8 +866,7 @@ if (revokeAllSharesBtn) {
             });
           })
           .then(function (result) {
-            if (!result.ok)
-              throw new Error(result.data.error || "Failed to revoke all share links");
+            if (!result.ok) throw new Error(result.data.error || "Failed to revoke all share links");
             showMsg(result.data.message || "All share links revoked successfully", "success");
             loadAllSharesStats();
             if (activeShareTarget && activeShareTarget.type === "file") {

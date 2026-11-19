@@ -150,6 +150,3 @@ nginx/certs/
 *.key
 *.crt
 .env
-
-
-# temp

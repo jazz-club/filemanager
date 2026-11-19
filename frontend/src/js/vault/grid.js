@@ -636,7 +636,10 @@ function renderListView(filteredFolders, filteredFiles, query, accordion, existi
     item.setAttribute("data-item-key", "file-" + file.id);
     item.draggable = true;
     item.ondragstart = function (e) {
-      if (e.target.tagName === "IMG" || e.target.tagName === "VIDEO") {
+      if (
+        e.target.tagName === "IMG" ||
+        e.target.tagName === "VIDEO"
+      ) {
         e.preventDefault();
         return;
       }

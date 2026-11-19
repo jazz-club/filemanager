@@ -115,8 +115,7 @@ function startZipDownloadTask(url, zipName, displayTitle, fetchOptions) {
             var elapsed = (performance.now() - startedAt) / 1000;
             if (contentLength >= 5 * 1024 * 1024 && elapsed >= 0.5 && receivedBytes > 0) {
               var speed = receivedBytes / elapsed;
-              status +=
-                " · " + formatTransferDuration((contentLength - receivedBytes) / speed) + " left";
+              status += " · " + formatTransferDuration((contentLength - receivedBytes) / speed) + " left";
             }
             statusEl.textContent = status;
           } else {

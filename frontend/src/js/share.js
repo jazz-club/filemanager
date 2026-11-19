@@ -22,9 +22,7 @@
 
     titleEl.textContent = "Remove from Share";
     bodyEl.textContent =
-      'Remove "' +
-      fileName +
-      '" from this share?\n(This only modifies the share not the original copy)';
+      'Remove "' + fileName + '" from this share?\n(This only modifies the share not the original copy)';
     bodyEl.style.whiteSpace = "pre-line";
     confirmBtn.textContent = "Remove";
     confirmBtn.className = "btn btn-sm btn-danger fw-bold";
@@ -45,25 +43,25 @@
     modal.show();
   }
 
-  function hasReachedDownloadLimit(share) {
-    return (
-      !share.isOwner &&
-      Number(share.maxDownloads) > 0 &&
-      Number(share.downloadsCount) >= Number(share.maxDownloads)
-    );
-  }
+function hasReachedDownloadLimit(share) {
+  return (
+    !share.isOwner &&
+    Number(share.maxDownloads) > 0 &&
+    Number(share.downloadsCount) >= Number(share.maxDownloads)
+  );
+}
 
-  function disableDownloadLink(link) {
-    if (!link) return;
-    link.href = "#";
-    link.classList.add("disabled");
-    link.setAttribute("aria-disabled", "true");
-    link.title = "This share link has reached its download limit";
-    link.onclick = function (event) {
-      event.preventDefault();
-      showShareError("This share link has reached its download limit");
-    };
-  }
+function disableDownloadLink(link) {
+  if (!link) return;
+  link.href = "#";
+  link.classList.add("disabled");
+  link.setAttribute("aria-disabled", "true");
+  link.title = "This share link has reached its download limit";
+  link.onclick = function (event) {
+    event.preventDefault();
+    showShareError("This share link has reached its download limit");
+  };
+}
 
   function getShareToken() {
     var path = window.location.pathname;
@@ -131,8 +129,7 @@
         } else if (res.status === 410) {
           errorTitle.textContent = "Share Link Unavailable";
           errorMsg.textContent =
-            (res.data && res.data.error) ||
-            "This share link has expired or reached its view limit.";
+            (res.data && res.data.error) || "This share link has expired or reached its view limit.";
         } else {
           errorTitle.textContent = "Link Unavailable";
           errorMsg.textContent =
@@ -792,7 +789,7 @@
         "</div>" +
         '<div class="d-flex align-items-center gap-2 ms-auto">' +
         '<button type="button" class="btn btn-sm btn-white border border-dark py-0 px-2 video-mute-btn">' +
-        '<img src="/src/assets/icons/lib/PNG/for-light-mode/16px/regular/sound-on.png" width="14" height="14" style="image-rendering: pixelated; vertical-align: -2px; margin-right: 4px;" alt="" />Mute' +
+        '<img src="/src/assets/icons/lib/SVG/regular/sound-on.svg" width="14" height="14" style="vertical-align: -2px; margin-right: 4px;" alt="" />Mute' +
         "</button>" +
         '<input type="range" class="form-range video-volume-slider" min="0" max="1" step="0.05" value="1" style="width: 75px;" />' +
         '<button type="button" class="btn btn-sm btn-white border border-dark py-0 px-2 video-fullscreen-btn" title="Toggle Fullscreen">Fullscreen</button>' +
@@ -866,8 +863,8 @@
       function updateVideoMuteState() {
         var isMuted = videoEl.muted || videoEl.volume === 0;
         var icon = isMuted
-          ? "/src/assets/icons/lib/PNG/for-light-mode/16px/regular/sound-mute.png"
-          : "/src/assets/icons/lib/PNG/for-light-mode/16px/regular/sound-on.png";
+          ? "/src/assets/icons/lib/SVG/regular/sound-mute.svg"
+          : "/src/assets/icons/lib/SVG/regular/sound-on.svg";
         muteBtn.innerHTML =
           '<img src="' +
           icon +
@@ -968,7 +965,7 @@
         "</div>" +
         '<div class="d-flex align-items-center gap-2 ms-auto">' +
         '<button type="button" class="btn btn-sm btn-white border border-dark py-0 px-2 audio-mute-btn">' +
-        '<img src="/src/assets/icons/lib/PNG/for-light-mode/16px/regular/sound-on.png" width="14" height="14" style="image-rendering: pixelated; vertical-align: -2px; margin-right: 4px;" alt="" />Mute' +
+        '<img src="/src/assets/icons/lib/SVG/regular/sound-on.svg" width="14" height="14" style="vertical-align: -2px; margin-right: 4px;" alt="" />Mute' +
         "</button>" +
         '<input type="range" class="form-range audio-volume-slider" min="0" max="1" step="0.05" value="1" style="width: 75px;" />' +
         "</div>";
@@ -1041,8 +1038,8 @@
       function updateAudioMuteState() {
         var isMuted = audioEl.muted || audioEl.volume === 0;
         var icon = isMuted
-          ? "/src/assets/icons/lib/PNG/for-light-mode/16px/regular/sound-mute.png"
-          : "/src/assets/icons/lib/PNG/for-light-mode/16px/regular/sound-on.png";
+          ? "/src/assets/icons/lib/SVG/regular/sound-mute.svg"
+          : "/src/assets/icons/lib/SVG/regular/sound-on.svg";
         aMuteBtn.innerHTML =
           '<img src="' +
           icon +

@@ -423,9 +423,7 @@ router.post("/batch/share", requireAuth, async (req, res) => {
     const maxViews = normalizeShareLimit(requestedMaxViews);
     const maxDownloads = normalizeShareLimit(requestedMaxDownloads);
     if (Number.isNaN(maxViews) || Number.isNaN(maxDownloads)) {
-      return res
-        .status(400)
-        .json({ error: "Share limits must be whole numbers from 0 to 1000000000" });
+      return res.status(400).json({ error: "Share limits must be whole numbers from 0 to 1000000000" });
     }
     const expiresInHoursInt = expiresInHours ? parseInt(expiresInHours, 10) : null;
     let expiresAt = null;
@@ -979,9 +977,7 @@ router.post("/:id/share", requireAuth, async (req, res) => {
     const maxViews = normalizeShareLimit(req.body.maxViews);
     const maxDownloads = normalizeShareLimit(req.body.maxDownloads);
     if (Number.isNaN(maxViews) || Number.isNaN(maxDownloads)) {
-      return res
-        .status(400)
-        .json({ error: "Share limits must be whole numbers from 0 to 1000000000" });
+      return res.status(400).json({ error: "Share limits must be whole numbers from 0 to 1000000000" });
     }
     const expiresInHours = req.body.expiresInHours ? parseInt(req.body.expiresInHours, 10) : null;
     let expiresAt = null;
@@ -995,16 +991,7 @@ router.post("/:id/share", requireAuth, async (req, res) => {
       `INSERT INTO file_shares (file_id, owner_id, share_token, is_public, allow_download, access_type, max_views, max_downloads, expires_at)
        VALUES ($1, $2, $3, $4, true, $5, $6, $7, $8)
        RETURNING id, file_id, share_token, is_public, allow_download, access_type, max_views, max_downloads, created_at, expires_at`,
-      [
-        fileId,
-        req.session.userId,
-        shareToken,
-        isPublic,
-        accessType,
-        maxViews,
-        maxDownloads,
-        expiresAt,
-      ]
+      [fileId, req.session.userId, shareToken, isPublic, accessType, maxViews, maxDownloads, expiresAt]
     );
 
     logger.audit({
