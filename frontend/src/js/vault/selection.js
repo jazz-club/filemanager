@@ -52,8 +52,11 @@ function setViewMode(mode) {
     10
   );
   var allowedPageSizes = mode === "grid" ? [24, 48] : [25, 50, 100, 200];
-  vaultPageSize =
-    allowedPageSizes.indexOf(savedPageSize) !== -1 ? savedPageSize : mode === "grid" ? 48 : 50;
+  vaultPageSize = allowedPageSizes.indexOf(savedPageSize) !== -1
+    ? savedPageSize
+    : mode === "grid"
+      ? 48
+      : 50;
   localStorage.setItem(
     mode === "grid" ? "vault_page_size_grid" : "vault_page_size_list",
     String(vaultPageSize)

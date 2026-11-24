@@ -93,7 +93,7 @@
     loadingEl.classList.add("d-none");
     errorEl.classList.remove("d-none");
     errorTitle.textContent = "Invalid Share Link";
-    errorMsg.textContent = "No share token was provided in the URL.";
+    errorMsg.textContent = "No share token param in URL.";
     return;
   }
 
@@ -111,7 +111,38 @@
 
       if (!res.ok) {
         errorEl.classList.remove("d-none");
-        if (res.status === 401 || (res.data && res.data.requiresAuth)) {
+        if (res.data && res.data.requiresPassword) {
+          errorTitle.textContent = "Password Protected Share";
+          errorMsg.textContent = "This share requires a password to unlock.";
+          var passwordForm = document.getElementById("share-password-form");
+          var passwordInput = document.getElementById("share-password-entry");
+          var passwordError = document.getElementById("share-password-error");
+          if (passwordForm) {
+            passwordForm.classList.remove("d-none");
+            passwordForm.onsubmit = function (event) {
+              event.preventDefault();
+              passwordError.classList.add("d-none");
+              fetchCsrfToken()
+                .then(function () {
+                  return api("/shares/" + token + "/unlock", {
+                    method: "POST",
+                    body: JSON.stringify({ password: passwordInput.value }),
+                  });
+                })
+                .then(function (response) {
+                  return response.json().then(function (data) {
+                    if (!response.ok) throw new Error(data.error || "Could not unlock share");
+                    window.location.reload();
+                  });
+                })
+                .catch(function (error) {
+                  passwordError.textContent = error.message || "Incorrect password";
+                  passwordError.classList.remove("d-none");
+                  passwordInput.select();
+                });
+            };
+          }
+        } else if (res.status === 401 || (res.data && res.data.requiresAuth)) {
           errorTitle.textContent = "Private Share";
           errorMsg.textContent =
             "This share link is private and requires you to log in or create an account to view and access.";

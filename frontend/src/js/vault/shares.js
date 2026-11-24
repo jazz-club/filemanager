@@ -129,6 +129,15 @@ function openBatchShareModal(fileIds, folderIds) {
 }
 
 function setupShareModalUI(title, sizeText, iconHtml) {
+  var passwordEnabledCheckbox = document.getElementById("share-password-enabled");
+  var passwordWrap = document.getElementById("share-password-wrap");
+  var passwordInput = document.getElementById("share-password");
+  if (passwordEnabledCheckbox) passwordEnabledCheckbox.checked = false;
+  if (passwordWrap) passwordWrap.classList.add("d-none");
+  if (passwordInput) {
+    passwordInput.value = "";
+    passwordInput.required = false;
+  }
   var filenameEl = document.getElementById("share-modal-filename");
   var filesizeEl = document.getElementById("share-modal-filesize");
   var iconEl = document.getElementById("share-file-icon");
@@ -170,6 +179,16 @@ if (limitAccessCheckbox) {
   });
 }
 
+var passwordEnabledCheckbox = document.getElementById("share-password-enabled");
+if (passwordEnabledCheckbox) {
+  passwordEnabledCheckbox.addEventListener("change", function () {
+    var passwordWrap = document.getElementById("share-password-wrap");
+    var passwordInput = document.getElementById("share-password");
+    if (passwordWrap) passwordWrap.classList.toggle("d-none", !passwordEnabledCheckbox.checked);
+    if (passwordInput) passwordInput.required = passwordEnabledCheckbox.checked;
+  });
+}
+
 function renderShareCard(s, onRevoke) {
   var item = document.createElement("div");
   item.className = "share-card-row";
@@ -189,6 +208,9 @@ function renderShareCard(s, onRevoke) {
   var typeBadge = s.is_batch
     ? '<span class="badge bg-primary border border-dark" style="font-size:0.65rem;">Bundle</span>'
     : "";
+  var securityBadges = s.has_password
+    ? '<span class="badge bg-dark" style="font-size:0.65rem;">Password</span>'
+    : "";
 
   var expiryHtml = s.expires_at
     ? '<span class="share-card-expiry" title="Expires">Expires: ' +
@@ -202,6 +224,7 @@ function renderShareCard(s, onRevoke) {
     permBadge +
     visBadge +
     typeBadge +
+    securityBadges +
     "</div>" +
     '<span class="share-card-title fw-bold" title="' +
     escapeHtml(labelTitle) +
@@ -398,6 +421,9 @@ function loadAllSharesStats() {
           "</span>" +
           (s.is_batch
             ? ' <span class="badge bg-primary border border-dark" style="font-size:0.6rem;">Bundle</span>'
+            : "") +
+          (s.has_password
+            ? ' <span class="badge bg-dark" style="font-size:0.6rem;">Password</span>'
             : "") +
           "</td>" +
           usageCell(s.views_count, s.max_views) +
@@ -806,6 +832,14 @@ if (createShareBtn) {
     }
     var privateRadio = document.getElementById("shareVisPrivate");
     var isPublic = privateRadio ? !privateRadio.checked : true;
+    var passwordEnabled = !!(passwordEnabledCheckbox && passwordEnabledCheckbox.checked);
+    var passwordInput = document.getElementById("share-password");
+    var sharePassword = passwordEnabled && passwordInput ? passwordInput.value : "";
+    if (passwordEnabled && !sharePassword) {
+      passwordInput.focus();
+      showMsg("Enter a password.", "error");
+      return;
+    }
     var expiresInHours = getSelectedExpiryHours();
 
     createShareBtn.disabled = true;
@@ -817,6 +851,7 @@ if (createShareBtn) {
       maxViews: limitAccess && maxViewsInput ? Number(maxViewsInput.value) : 0,
       maxDownloads: limitAccess && maxDownloadsInput ? Number(maxDownloadsInput.value) : 0,
     };
+    if (sharePassword) body.password = sharePassword;
     if (expiresInHours) body.expiresInHours = expiresInHours;
 
     var promise;

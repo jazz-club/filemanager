@@ -15,7 +15,10 @@ if (currentViewMode !== "grid" && [25, 50, 100, 200].indexOf(vaultPageSize) === 
 function updateVaultPageSizeOptions() {
   document.querySelectorAll("[data-vault-page-size]").forEach(function (option) {
     var size = parseInt(option.getAttribute("data-vault-page-size"), 10);
-    var visible = currentViewMode === "grid" ? size === 24 || size === 48 : size >= 25;
+    var visible =
+      currentViewMode === "grid"
+        ? size === 24 || size === 48
+        : [25, 50, 100, 200].indexOf(size) !== -1;
     option.closest("li").classList.toggle("d-none", !visible);
   });
 }

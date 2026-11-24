@@ -99,6 +99,15 @@
         </div>
         <div class="mb-3">
           <div class="form-check">
+            <input class="form-check-input" type="checkbox" id="share-password-enabled" />
+            <label class="form-check-label small fw-bold" for="share-password-enabled">Password protect</label>
+          </div>
+          <div id="share-password-wrap" class="mt-2 d-none">
+            <input id="share-password" type="password" class="form-control form-control-sm" maxlength="72" autocomplete="new-password" placeholder="Enter a password" />
+          </div>
+        </div>
+        <div class="mb-3">
+          <div class="form-check">
             <input class="form-check-input" type="checkbox" id="share-limit-access" />
             <label class="form-check-label small fw-bold" for="share-limit-access"
               >Limit Access Times</label

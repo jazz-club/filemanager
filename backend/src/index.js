@@ -108,10 +108,11 @@ app.get("/share/:token", async (req, res) => {
       process.env.SHARE_PAGE_PATH || path.resolve(__dirname, "../../frontend/src/html/share.html");
     let html = fs.readFileSync(pagePath, "utf8");
     const shareQ = await pool.query(
-      `SELECT s.is_public AS "isPublic", s.is_batch AS "isBatch",
+      `SELECT s.is_public AS "isPublic", s.is_batch AS "isBatch", s.password_hash AS "passwordHash",
               s.title, s.expires_at AS "expiresAt", f.original_name AS "originalName",
               f.mime_type AS "mimeType", f.size_bytes AS "sizeBytes",
-              (SELECT COUNT(*)::int FROM file_share_items i WHERE i.share_id = s.id) AS "fileCount"
+              (SELECT COUNT(*)::int FROM file_share_items i WHERE i.share_id = s.id) AS "fileCount",
+              s.owner_id AS "ownerId"
        FROM file_shares s
        LEFT JOIN files f ON f.id = s.file_id
        WHERE s.share_token = $1 AND (s.expires_at IS NULL OR s.expires_at > NOW())`,
@@ -122,7 +123,10 @@ app.get("/share/:token", async (req, res) => {
     let description = "A file has been shared with you on PinkBox.";
     let imageUrl = "/src/assets/icons/heart.png";
     const share = shareQ.rows[0];
-    const canViewMetadata = share && (share.isPublic || Boolean(req.session?.userId));
+    const canViewMetadata =
+      share &&
+      !share.passwordHash &&
+      (share.isPublic || Number(share.ownerId) === Number(req.session?.userId));
     if (canViewMetadata) {
       const name = share.isBatch ? decryptText(share.title) : decryptText(share.originalName);
       title = name || (share.isBatch ? "Shared collection" : "Shared file");

@@ -16,6 +16,14 @@
   <p class="text-muted mb-4" id="share-error-msg">
     This item does not exist, has expired, or the link was revoked.
   </p>
+  <form id="share-password-form" class="d-none mx-auto mb-3" style="max-width: 360px">
+    <label for="share-password-entry" class="form-label fw-bold">Enter password</label>
+    <div class="input-group">
+      <input id="share-password-entry" type="password" class="form-control" autocomplete="current-password" required />
+      <button type="submit" class="btn btn-primary fw-bold">Unlock</button>
+    </div>
+    <div id="share-password-error" class="small text-danger mt-2 d-none"></div>
+  </form>
   <div class="d-flex justify-content-center gap-2 flex-wrap">
     <a href="/login" id="share-error-login-btn" class="btn btn-primary d-none fw-bold"
       >Log In to Access</a

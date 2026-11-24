@@ -1,6 +1,7 @@
 const { Router } = require("express");
 const { ZipArchive } = require("archiver");
 const crypto = require("crypto");
+const bcrypt = require("bcrypt");
 const { pool } = require("../db");
 const { decrypt } = require("../crypto");
 const { getObject, copyObject } = require("../storage");
@@ -9,6 +10,28 @@ const logger = require("../logger");
 const { encryptText, decryptText, encryptJson, decryptJson, blindIndex } = require("../crypto");
 
 const router = Router();
+const shareUnlockAttempts = new Map();
+
+function shareUnlockCookieName(token) {
+  return "share_unlock_" + crypto.createHash("sha256").update(token).digest("hex").slice(0, 16);
+}
+
+function expectedShareUnlockValue(token, passwordHash) {
+  return crypto
+    .createHmac("sha256", process.env.SESSION_SECRET)
+    .update(token + ":" + passwordHash)
+    .digest("hex");
+}
+
+function hasShareUnlockCookie(req, token, passwordHash) {
+  if (!req || !req.headers.cookie) return false;
+  const name = shareUnlockCookieName(token);
+  const entry = req.headers.cookie.split(";").map((part) => part.trim()).find((part) => part.startsWith(name + "="));
+  if (!entry) return false;
+  const supplied = Buffer.from(entry.slice(name.length + 1));
+  const expected = Buffer.from(expectedShareUnlockValue(token, passwordHash));
+  return supplied.length === expected.length && crypto.timingSafeEqual(supplied, expected);
+}
 
 function revealFile(row) {
   if (!row) return row;
@@ -34,7 +57,7 @@ function requireAuth(req, res, next) {
   next();
 }
 
-async function resolveShare(shareToken, sessionUserId) {
+async function resolveShare(shareToken, sessionUserId, req) {
   if (!shareToken || typeof shareToken !== "string") {
     return { error: "Invalid share token", status: 400 };
   }
@@ -43,7 +66,7 @@ async function resolveShare(shareToken, sessionUserId) {
     `SELECT s.id AS share_id, s.file_id, s.owner_id, s.share_token, s.is_public, s.allow_download,
             s.access_type, s.max_views, s.max_downloads,
             s.is_batch, s.title, s.views_count, s.downloads_count, s.saves_count,
-            s.created_at AS share_created_at, s.expires_at,
+            s.created_at AS share_created_at, s.expires_at, s.password_hash,
             f.original_name, f.mime_type, f.size_bytes, f.sha256, f.storage_key, f.metadata, f.uploaded_at
      FROM file_shares s
      LEFT JOIN files f ON s.file_id = f.id
@@ -61,6 +84,10 @@ async function resolveShare(shareToken, sessionUserId) {
     return { error: "Share link has expired", status: 410 };
   }
 
+  if (share.password_hash && !hasShareUnlockCookie(req, shareToken, share.password_hash)) {
+    return { error: "This share is password protected", requiresPassword: true, status: 401 };
+  }
+
   if (!share.is_public && !sessionUserId) {
     return {
       error: "Authentication required to access this private share",
@@ -71,6 +98,50 @@ async function resolveShare(shareToken, sessionUserId) {
 
   return { share };
 }
+
+router.post("/:token/unlock", async (req, res) => {
+  const token = req.params.token;
+  const key = (req.ip || "unknown") + ":" + token;
+  const current = shareUnlockAttempts.get(key);
+  if (current && current.until > Date.now() && current.count >= 8) {
+    return res.status(429).json({ error: "Too many incorrect password attempts. Try again later." });
+  }
+  try {
+    const result = await pool.query(
+      "SELECT password_hash, expires_at FROM file_shares WHERE share_token = $1",
+      [token]
+    );
+    if (!result.rows.length) return res.status(404).json({ error: "Share link not found" });
+    const share = result.rows[0];
+    if (!share.password_hash) return res.json({ success: true });
+    if (share.expires_at && new Date(share.expires_at) <= new Date()) {
+      return res.status(410).json({ error: "Share link has expired" });
+    }
+    const supplied = typeof req.body.password === "string" ? req.body.password : "";
+    const valid = supplied.length <= 72 && (await bcrypt.compare(supplied, share.password_hash));
+    if (!valid) {
+      const prior = current && current.until > Date.now() ? current : { count: 0, until: Date.now() + 15 * 60 * 1000 };
+      prior.count += 1;
+      shareUnlockAttempts.set(key, prior);
+      return res.status(prior.count >= 8 ? 429 : 401).json({ error: "Incorrect share password" });
+    }
+    shareUnlockAttempts.delete(key);
+    const maxAge = share.expires_at
+      ? Math.max(1, Math.min(7 * 24 * 60 * 60, Math.floor((new Date(share.expires_at) - Date.now()) / 1000)))
+      : 7 * 24 * 60 * 60;
+    res.cookie(shareUnlockCookieName(token), expectedShareUnlockValue(token, share.password_hash), {
+      httpOnly: true,
+      secure: true,
+      sameSite: "strict",
+      path: "/api/shares/" + token,
+      maxAge: maxAge * 1000,
+    });
+    res.json({ success: true });
+  } catch (err) {
+    logger.error("Share unlock error", err);
+    res.status(500).json({ error: "Could not unlock share" });
+  }
+});
 
 async function recordShareDownload(share, sessionUserId) {
   if (sessionUserId && sessionUserId === share.owner_id) return true;
@@ -88,6 +159,7 @@ router.get("/mine/summary", requireAuth, async (req, res) => {
   try {
     const sharesQ = await pool.query(
       `SELECT s.id, s.file_id, s.share_token, s.is_public, s.allow_download, s.access_type, s.max_views, s.max_downloads, s.is_batch, s.title,
+              (s.password_hash IS NOT NULL) AS has_password,
               s.views_count, s.downloads_count, s.saves_count, s.created_at, s.expires_at,
               f.original_name, f.size_bytes, f.mime_type,
               COALESCE((
@@ -146,13 +218,14 @@ router.get("/mine/summary", requireAuth, async (req, res) => {
 router.get("/:token", async (req, res) => {
   try {
     const sessionUserId = req.session ? req.session.userId : null;
-    const { share, error, requiresAuth, status } = await resolveShare(
+    const { share, error, requiresAuth, requiresPassword, status } = await resolveShare(
       req.params.token,
-      sessionUserId
+      sessionUserId,
+      req
     );
 
     if (error) {
-      return res.status(status || 404).json({ error, requiresAuth: !!requiresAuth });
+      return res.status(status || 404).json({ error, requiresAuth: !!requiresAuth, requiresPassword: !!requiresPassword });
     }
 
     if (!sessionUserId || sessionUserId !== share.owner_id) {
@@ -251,7 +324,8 @@ router.delete("/:token/files/:fileId", async (req, res) => {
     const sessionUserId = req.session ? req.session.userId : null;
     const { share, error, requiresAuth, status } = await resolveShare(
       req.params.token,
-      sessionUserId
+      sessionUserId,
+      req
     );
 
     if (error) {
@@ -362,7 +436,8 @@ router.get("/:token/preview", async (req, res) => {
   try {
     const { share, error, requiresAuth, status } = await resolveShare(
       req.params.token,
-      req.session ? req.session.userId : null
+      req.session ? req.session.userId : null,
+      req
     );
 
     if (error) {
@@ -384,7 +459,8 @@ router.get("/:token/files/:fileId/preview", async (req, res) => {
   try {
     const { share, error, requiresAuth, status } = await resolveShare(
       req.params.token,
-      req.session ? req.session.userId : null
+      req.session ? req.session.userId : null,
+      req
     );
 
     if (error) {
@@ -414,7 +490,8 @@ router.get("/:token/files/:fileId/cover", async (req, res) => {
   try {
     const { share, error, status } = await resolveShare(
       req.params.token,
-      req.session ? req.session.userId : null
+      req.session ? req.session.userId : null,
+      req
     );
 
     if (error) {
@@ -454,7 +531,8 @@ router.get("/:token/files/:fileId/download", async (req, res) => {
   try {
     const { share, error, requiresAuth, status } = await resolveShare(
       req.params.token,
-      req.session ? req.session.userId : null
+      req.session ? req.session.userId : null,
+      req
     );
 
     if (error) {
@@ -515,7 +593,8 @@ router.get("/:token/cover", async (req, res) => {
   try {
     const { share, error, status } = await resolveShare(
       req.params.token,
-      req.session ? req.session.userId : null
+      req.session ? req.session.userId : null,
+      req
     );
 
     if (error) {
@@ -565,7 +644,8 @@ router.get("/:token/download", async (req, res) => {
   try {
     const { share, error, requiresAuth, status } = await resolveShare(
       req.params.token,
-      req.session ? req.session.userId : null
+      req.session ? req.session.userId : null,
+      req
     );
 
     if (error) {
@@ -665,7 +745,8 @@ router.post("/:token/save-to-vault", requireAuth, async (req, res) => {
     const savingUserId = req.session.userId;
     const { share, error, requiresAuth, status } = await resolveShare(
       req.params.token,
-      savingUserId
+      savingUserId,
+      req
     );
 
     if (error) {
@@ -784,7 +865,8 @@ router.post("/:token/files/:fileId/save-to-vault", requireAuth, async (req, res)
     const savingUserId = req.session.userId;
     const { share, error, requiresAuth, status } = await resolveShare(
       req.params.token,
-      savingUserId
+      savingUserId,
+      req
     );
 
     if (error) {

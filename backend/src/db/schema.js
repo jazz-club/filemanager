@@ -116,6 +116,9 @@ async function initDB() {
     ALTER TABLE files ADD COLUMN IF NOT EXISTS download_token VARCHAR(64) UNIQUE;
     ALTER TABLE folders ADD COLUMN IF NOT EXISTS color VARCHAR(32) DEFAULT '#ffffff';
     ALTER TABLE folders ADD COLUMN IF NOT EXISTS name_hash VARCHAR(64);
+    ALTER TABLE files DROP COLUMN IF EXISTS deleted_at;
+    ALTER TABLE folders DROP COLUMN IF EXISTS deleted_at;
+    DROP TABLE IF EXISTS file_share_recipients;
     ALTER TABLE users ADD COLUMN IF NOT EXISTS username_hash VARCHAR(64) UNIQUE;
     ALTER TABLE users ADD COLUMN IF NOT EXISTS encrypted_username TEXT;
     ALTER TABLE audit_logs DROP COLUMN IF EXISTS ip;
@@ -133,6 +136,7 @@ async function initDB() {
     ALTER TABLE file_shares ADD COLUMN IF NOT EXISTS views_count INTEGER NOT NULL DEFAULT 0;
     ALTER TABLE file_shares ADD COLUMN IF NOT EXISTS downloads_count INTEGER NOT NULL DEFAULT 0;
     ALTER TABLE file_shares ADD COLUMN IF NOT EXISTS saves_count INTEGER NOT NULL DEFAULT 0;
+    ALTER TABLE file_shares ADD COLUMN IF NOT EXISTS password_hash TEXT;
 
     CREATE INDEX IF NOT EXISTS idx_files_owner_folder ON files (owner_id, folder_id);
     CREATE INDEX IF NOT EXISTS idx_files_download_token ON files (download_token);
@@ -147,7 +151,6 @@ async function initDB() {
     CREATE INDEX IF NOT EXISTS idx_file_shares_owner ON file_shares (owner_id);
     CREATE INDEX IF NOT EXISTS idx_file_share_items_share ON file_share_items (share_id);
     CREATE INDEX IF NOT EXISTS idx_file_share_items_file ON file_share_items (file_id);
-
     INSERT INTO system_settings (key, value) VALUES ('allow_registration', 'true')
     ON CONFLICT (key) DO NOTHING;
   `);

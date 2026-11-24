@@ -1,9 +1,9 @@
 const { Router } = require("express");
 const path = require("path");
 const { folderRepository, pool } = require("../db");
-const { deleteObject } = require("../storage");
 const logger = require("../logger");
 const { blindIndex } = require("../crypto");
+const { deleteObject } = require("../storage");
 
 const router = Router();
 
@@ -268,16 +268,15 @@ router.patch("/:id/move", requireAuth, async (req, res) => {
 router.delete("/:id", requireAuth, async (req, res) => {
   try {
     const folderId = parseInt(req.params.id, 10);
+    const folder = await folderRepository.getFolderById(folderId, req.session.userId);
+    if (!folder) return res.status(404).json({ error: "Folder not found" });
     const folderIds = await folderRepository.getDescendantFolderIds(folderId, req.session.userId);
-    const storageKeys = await folderRepository.getFileStorageKeysByFolders(
-      folderIds,
-      req.session.userId
-    );
+    const storageKeys = await folderRepository.getFileStorageKeysByFolders(folderIds, req.session.userId);
     for (const storageKey of storageKeys) {
       try {
         await deleteObject(storageKey);
       } catch (err) {
-        logger.error("Folder storage cleanup failed", err);
+        logger.error("Folder delete storage cleanup failed", err);
       }
     }
     await folderRepository.deleteFolderRows(folderIds, req.session.userId);

@@ -1,6 +1,7 @@
 const { Router } = require("express");
 const multer = require("multer");
 const crypto = require("crypto");
+const bcrypt = require("bcrypt");
 const path = require("path");
 const { ZipArchive } = require("archiver");
 const { pool, fileRepository, folderRepository } = require("../db");
@@ -44,6 +45,15 @@ function normalizeShareLimit(value) {
   const parsed = Number(value);
   if (!Number.isSafeInteger(parsed) || parsed < 0 || parsed > 1000000000) return NaN;
   return parsed === 0 ? null : parsed;
+}
+
+async function prepareShareSecurity(body) {
+  const password = body.password === undefined || body.password === null ? "" : String(body.password);
+  if (password && Buffer.byteLength(password, "utf8") > 72) {
+    return { error: "Share passwords limited to 72 characters fuck you bcrypt" };
+  }
+  const passwordHash = password ? await bcrypt.hash(password, 12) : null;
+  return { passwordHash };
 }
 
 const previewCache = new Map();
@@ -185,60 +195,37 @@ router.get("/stats/usage", requireAuth, async (req, res) => {
 router.post("/batch/delete", requireAuth, async (req, res) => {
   try {
     const { fileIds = [], folderIds = [] } = req.body;
+    const allFolderIds = folderIds.length
+      ? await folderRepository.getDescendantFolderIds(folderIds, req.session.userId)
+      : [];
+    const nestedFiles = allFolderIds.length
+      ? await pool.query("SELECT id, storage_key FROM files WHERE folder_id = ANY($1) AND owner_id = $2", [
+          allFolderIds,
+          req.session.userId,
+        ])
+      : { rows: [] };
+    const nestedFileIds = new Set(nestedFiles.rows.map((row) => String(row.id)));
+    const directFileIds = fileIds.filter((id) => !nestedFileIds.has(String(id)));
+    const directFiles = directFileIds.length
+      ? await pool.query("SELECT id, storage_key FROM files WHERE id = ANY($1) AND owner_id = $2", [
+          directFileIds,
+          req.session.userId,
+        ])
+      : { rows: [] };
 
-    if (folderIds.length > 0) {
-      const allFolderIds = [...folderIds];
-      let toProcess = [...folderIds];
-      while (toProcess.length > 0) {
-        const parentList = toProcess;
-        toProcess = [];
-        const sub = await pool.query(
-          "SELECT id FROM folders WHERE parent_id = ANY($1) AND owner_id = $2",
-          [parentList, req.session.userId]
-        );
-        for (const row of sub.rows) {
-          allFolderIds.push(row.id);
-          toProcess.push(row.id);
-        }
+    for (const file of [...nestedFiles.rows, ...directFiles.rows]) {
+      invalidatePreviewCache(file.id);
+      try {
+        await deleteObject(decryptText(file.storage_key));
+      } catch (err) {
+        logger.error("Batch delete storage cleanup failed", err);
       }
-
-      const folderFiles = await pool.query(
-        "SELECT storage_key FROM files WHERE folder_id = ANY($1) AND owner_id = $2",
-        [allFolderIds, req.session.userId]
-      );
-      for (const f of folderFiles.rows) {
-        try {
-          await deleteObject(decryptText(f.storage_key));
-        } catch (e) {
-          logger.error("Storage object delete failed", e);
-        }
-      }
-
-      await pool.query("DELETE FROM files WHERE folder_id = ANY($1) AND owner_id = $2", [
-        allFolderIds,
-        req.session.userId,
-      ]);
-      await pool.query("DELETE FROM folders WHERE id = ANY($1) AND owner_id = $2", [
-        allFolderIds,
-        req.session.userId,
-      ]);
     }
 
-    if (fileIds.length > 0) {
-      const filesQ = await pool.query(
-        "SELECT storage_key FROM files WHERE id = ANY($1) AND owner_id = $2",
-        [fileIds, req.session.userId]
-      );
-      for (const f of filesQ.rows) {
-        try {
-          await deleteObject(decryptText(f.storage_key));
-        } catch (e) {
-          logger.error("Storage object delete failed", e);
-        }
-      }
-      fileIds.forEach((id) => invalidatePreviewCache(id));
+    if (allFolderIds.length) await folderRepository.deleteFolderRows(allFolderIds, req.session.userId);
+    if (directFileIds.length) {
       await pool.query("DELETE FROM files WHERE id = ANY($1) AND owner_id = $2", [
-        fileIds,
+        directFileIds,
         req.session.userId,
       ]);
     }
@@ -487,7 +474,10 @@ router.post("/batch/share", requireAuth, async (req, res) => {
       maxDownloads: requestedMaxDownloads,
       title,
       expiresInHours,
+      password,
     } = req.body;
+    const shareSecurity = await prepareShareSecurity({ password });
+    if (shareSecurity.error) return res.status(400).json({ error: shareSecurity.error });
     const accessTypeValue = accessType === "edit" ? "edit" : "view";
     const maxViews = normalizeShareLimit(requestedMaxViews);
     const maxDownloads = normalizeShareLimit(requestedMaxDownloads);
@@ -539,10 +529,9 @@ router.post("/batch/share", requireAuth, async (req, res) => {
 
     const shareToken = crypto.randomBytes(24).toString("hex");
     const shareTitle = title || `Collection (${allFileItems.length} items)`;
-
     const shareQ = await pool.query(
-      `INSERT INTO file_shares (owner_id, share_token, is_public, allow_download, access_type, max_views, max_downloads, is_batch, title, file_id, expires_at)
-       VALUES ($1, $2, $3, true, $4, $5, $6, true, $7, NULL, $8)
+      `INSERT INTO file_shares (owner_id, share_token, is_public, allow_download, access_type, max_views, max_downloads, is_batch, title, file_id, expires_at, password_hash)
+       VALUES ($1, $2, $3, true, $4, $5, $6, true, $7, NULL, $8, $9)
        RETURNING id, share_token, is_public, allow_download, access_type, max_views, max_downloads, is_batch, title, created_at, expires_at`,
       [
         req.session.userId,
@@ -553,6 +542,7 @@ router.post("/batch/share", requireAuth, async (req, res) => {
         maxDownloads,
         encryptText(shareTitle),
         expiresAt,
+        shareSecurity.passwordHash,
       ]
     );
 
@@ -564,7 +554,6 @@ router.post("/batch/share", requireAuth, async (req, res) => {
         [share.id, item.id, encryptText(item.displayName)]
       );
     }
-
     logger.audit({
       event: "FILE_BATCH_SHARE_CREATED",
       req,
@@ -574,10 +563,11 @@ router.post("/batch/share", requireAuth, async (req, res) => {
       details: {
         shareId: share.id,
         fileCount: allFileItems.length,
-        isPublic,
+        isPublic: isPublic !== false,
         accessType: accessTypeValue,
         maxViews,
         maxDownloads,
+        passwordProtected: !!shareSecurity.passwordHash,
       },
     });
 
@@ -585,6 +575,7 @@ router.post("/batch/share", requireAuth, async (req, res) => {
       ...share,
       title: decryptText(share.title),
       file_count: allFileItems.length,
+      has_password: !!shareSecurity.passwordHash,
     });
   } catch (err) {
     logger.error("Create batch share error", err);
@@ -1100,22 +1091,27 @@ router.post("/:id/share", requireAuth, async (req, res) => {
     }
 
     const shareToken = crypto.randomBytes(24).toString("hex");
+    const shareSecurity = await prepareShareSecurity(req.body);
+    if (shareSecurity.error) return res.status(400).json({ error: shareSecurity.error });
+    const effectiveIsPublic = req.body.isPublic !== false;
 
     const shareQ = await pool.query(
-      `INSERT INTO file_shares (file_id, owner_id, share_token, is_public, allow_download, access_type, max_views, max_downloads, expires_at)
-       VALUES ($1, $2, $3, $4, true, $5, $6, $7, $8)
+      `INSERT INTO file_shares (file_id, owner_id, share_token, is_public, allow_download, access_type, max_views, max_downloads, expires_at, password_hash)
+       VALUES ($1, $2, $3, $4, true, $5, $6, $7, $8, $9)
        RETURNING id, file_id, share_token, is_public, allow_download, access_type, max_views, max_downloads, created_at, expires_at`,
       [
         fileId,
         req.session.userId,
         shareToken,
-        isPublic,
+        effectiveIsPublic,
         accessType,
         maxViews,
         maxDownloads,
         expiresAt,
+        shareSecurity.passwordHash,
       ]
     );
+    shareQ.rows[0].has_password = !!shareSecurity.passwordHash;
 
     logger.audit({
       event: "FILE_SHARE_CREATED",
@@ -1126,11 +1122,12 @@ router.post("/:id/share", requireAuth, async (req, res) => {
       details: {
         fileId,
         shareId: shareQ.rows[0].id,
-        isPublic,
+        isPublic: effectiveIsPublic,
         accessType,
         maxViews,
         maxDownloads,
         expiresAt,
+        passwordProtected: !!shareSecurity.passwordHash,
       },
     });
 
@@ -1153,7 +1150,8 @@ router.get("/:id/shares", requireAuth, async (req, res) => {
     if (chk.rows.length === 0) return res.status(404).json({ error: "File not found" });
 
     const sharesQ = await pool.query(
-      `SELECT id, file_id, share_token, is_public, allow_download, access_type, max_views, max_downloads, is_batch, title, views_count, downloads_count, saves_count, created_at, expires_at
+      `SELECT id, file_id, share_token, is_public, allow_download, access_type, max_views, max_downloads, is_batch, title, views_count, downloads_count, saves_count, created_at, expires_at,
+              (password_hash IS NOT NULL) AS has_password
        FROM file_shares
        WHERE file_id = $1 AND owner_id = $2 AND (expires_at IS NULL OR expires_at > NOW())
        ORDER BY created_at DESC`,
@@ -1264,7 +1262,7 @@ router.get("/:id", requireAuth, async (req, res) => {
 router.delete("/:id", requireAuth, async (req, res) => {
   try {
     const result = await pool.query(
-      "SELECT storage_key FROM files WHERE id = $1 AND owner_id = $2",
+      "SELECT id, storage_key FROM files WHERE id = $1 AND owner_id = $2",
       [req.params.id, req.session.userId]
     );
     if (result.rows.length === 0) {
@@ -1307,5 +1305,4 @@ router.delete("/:id", requireAuth, async (req, res) => {
     res.status(500).json({ error: "Delete failed" });
   }
 });
-
 module.exports = router;
