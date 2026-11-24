@@ -1,5 +1,24 @@
 var vaultCurrentPage = 1;
-var vaultPageSize = parseInt(localStorage.getItem("vault_page_size"), 10) || 50;
+var vaultPageSize = parseInt(
+  localStorage.getItem(
+    currentViewMode === "grid" ? "vault_page_size_grid" : "vault_page_size_list"
+  ),
+  10
+);
+if (!vaultPageSize && currentViewMode !== "grid") {
+  vaultPageSize = parseInt(localStorage.getItem("vault_page_size"), 10);
+}
+if (currentViewMode === "grid" && [24, 48].indexOf(vaultPageSize) === -1) vaultPageSize = 48;
+if (currentViewMode !== "grid" && [25, 50, 100, 200].indexOf(vaultPageSize) === -1)
+  vaultPageSize = 50;
+
+function updateVaultPageSizeOptions() {
+  document.querySelectorAll("[data-vault-page-size]").forEach(function (option) {
+    var size = parseInt(option.getAttribute("data-vault-page-size"), 10);
+    var visible = currentViewMode === "grid" ? size === 24 || size === 48 : size >= 25;
+    option.closest("li").classList.toggle("d-none", !visible);
+  });
+}
 
 function updateVaultPagination(totalItems) {
   var totalPages = Math.max(1, Math.ceil(totalItems / vaultPageSize));
@@ -37,12 +56,20 @@ if (vaultNextPageBtn)
   };
 document.querySelectorAll("[data-vault-page-size]").forEach(function (option) {
   option.onclick = function () {
-    vaultPageSize = parseInt(option.getAttribute("data-vault-page-size"), 10) || 50;
+    var selectedSize = parseInt(option.getAttribute("data-vault-page-size"), 10);
+    var validSizes = currentViewMode === "grid" ? [24, 48] : [25, 50, 100, 200];
+    if (validSizes.indexOf(selectedSize) === -1) return;
+    vaultPageSize = selectedSize;
     vaultCurrentPage = 1;
-    localStorage.setItem("vault_page_size", String(vaultPageSize));
+    localStorage.setItem(
+      currentViewMode === "grid" ? "vault_page_size_grid" : "vault_page_size_list",
+      String(vaultPageSize)
+    );
+    if (currentViewMode !== "grid") localStorage.setItem("vault_page_size", String(vaultPageSize));
     renderList();
   };
 });
+updateVaultPageSizeOptions();
 
 function renderList() {
   var accordion = document.getElementById("filesAccordion");

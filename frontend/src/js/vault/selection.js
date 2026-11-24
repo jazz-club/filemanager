@@ -44,8 +44,23 @@ document.querySelectorAll(".sort-opt").forEach(function (btn) {
 });
 
 function setViewMode(mode) {
+  if (mode === currentViewMode) return;
   currentViewMode = mode;
   localStorage.setItem("vault_view_mode", mode);
+  var savedPageSize = parseInt(
+    localStorage.getItem(mode === "grid" ? "vault_page_size_grid" : "vault_page_size_list"),
+    10
+  );
+  var allowedPageSizes = mode === "grid" ? [24, 48] : [25, 50, 100, 200];
+  vaultPageSize =
+    allowedPageSizes.indexOf(savedPageSize) !== -1 ? savedPageSize : mode === "grid" ? 48 : 50;
+  localStorage.setItem(
+    mode === "grid" ? "vault_page_size_grid" : "vault_page_size_list",
+    String(vaultPageSize)
+  );
+  if (mode === "list") localStorage.setItem("vault_page_size", String(vaultPageSize));
+  vaultCurrentPage = 1;
+  updateVaultPageSizeOptions();
   if (viewCheckList && viewCheckGrid) {
     if (mode === "grid") {
       viewCheckList.classList.add("d-none");
