@@ -49,17 +49,9 @@ async function getAllUsersWithStats() {
   const result = await pool.query(`
     SELECT
       u.id,
-      u.username AS pseudonym,
-      u.created_at,
-      u.encrypted_username,
-      COUNT(DISTINCT f.id) AS file_count,
-      COALESCE(SUM(f.size_bytes), 0) AS total_bytes,
-      COUNT(DISTINCT fo.id) AS folder_count
+      COALESCE((SELECT SUM(f.size_bytes) FROM files f WHERE f.owner_id = u.id), 0) AS total_bytes
     FROM users u
-    LEFT JOIN files f ON f.owner_id = u.id
-    LEFT JOIN folders fo ON fo.owner_id = u.id
-    GROUP BY u.id, u.username, u.created_at, u.encrypted_username
-    ORDER BY u.created_at ASC
+    ORDER BY u.id ASC
   `);
   return result.rows;
 }

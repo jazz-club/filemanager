@@ -4,13 +4,35 @@ const crypto = require("crypto");
 const path = require("path");
 const { ZipArchive } = require("archiver");
 const { pool, fileRepository, folderRepository } = require("../db");
-const { encrypt, decrypt } = require("../crypto");
+const {
+  encrypt,
+  decrypt,
+  encryptText,
+  decryptText,
+  encryptJson,
+  decryptJson,
+} = require("../crypto");
 const { putObject, getObject, deleteObject } = require("../storage");
 const { extractAudioCover } = require("../audioCover");
 const { extractMetadata } = require("../metadataExtractor");
 const logger = require("../logger");
 
 const router = Router();
+
+function revealFileRow(row) {
+  if (!row) return row;
+  if (row.original_name !== undefined) row.original_name = decryptText(row.original_name);
+  if (row.storage_key !== undefined) row.storage_key = decryptText(row.storage_key);
+  if (row.mime_type !== undefined) row.mime_type = decryptText(row.mime_type);
+  if (row.sha256 !== undefined) row.sha256 = decryptText(row.sha256);
+  if (row.metadata !== undefined) row.metadata = decryptJson(row.metadata);
+  return row;
+}
+
+function revealFolderRow(row) {
+  if (row && row.name !== undefined) row.name = decryptText(row.name);
+  return row;
+}
 const upload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 5120 * 1024 * 1024 },
@@ -151,7 +173,7 @@ router.get("/stats/usage", requireAuth, async (req, res) => {
 
     res.json({
       totalBytes,
-      fileCount: result.rows.length,
+      fileCount: rows.length,
       categories,
     });
   } catch (err) {
@@ -186,9 +208,9 @@ router.post("/batch/delete", requireAuth, async (req, res) => {
       );
       for (const f of folderFiles.rows) {
         try {
-          await deleteObject(f.storage_key);
+          await deleteObject(decryptText(f.storage_key));
         } catch (e) {
-          console.error("Storage delete err:", f.storage_key, e);
+          logger.error("Storage object delete failed", e);
         }
       }
 
@@ -209,9 +231,9 @@ router.post("/batch/delete", requireAuth, async (req, res) => {
       );
       for (const f of filesQ.rows) {
         try {
-          await deleteObject(f.storage_key);
+          await deleteObject(decryptText(f.storage_key));
         } catch (e) {
-          console.error("Storage delete err:", f.storage_key, e);
+          logger.error("Storage object delete failed", e);
         }
       }
       fileIds.forEach((id) => invalidatePreviewCache(id));
@@ -220,6 +242,15 @@ router.post("/batch/delete", requireAuth, async (req, res) => {
         req.session.userId,
       ]);
     }
+
+    logger.audit({
+      event: "BATCH_DELETE_SUCCESS",
+      req,
+      userId: req.session.userId,
+      details: { fileIds, folderIds, count: fileIds.length + folderIds.length },
+      outcome: "SUCCESS",
+      statusCode: 200,
+    });
 
     res.json({ message: "Selected items deleted permanently" });
   } catch (err) {
@@ -261,6 +292,20 @@ router.post("/batch/move", requireAuth, async (req, res) => {
       }
     }
 
+    logger.audit({
+      event: "BATCH_MOVE_SUCCESS",
+      req,
+      userId: req.session.userId,
+      details: {
+        fileIds,
+        folderIds,
+        targetFolderId: destId,
+        count: fileIds.length + folderIds.length,
+      },
+      outcome: "SUCCESS",
+      statusCode: 200,
+    });
+
     res.json({ message: "Items moved successfully" });
   } catch (err) {
     console.error("Batch move error:", err);
@@ -276,14 +321,14 @@ async function collectFolderFiles(userId, rootFolderId, basePath = "") {
   ]);
   if (folderQ.rows.length === 0) return result;
 
-  const currentFolder = folderQ.rows[0];
+  const currentFolder = revealFolderRow(folderQ.rows[0]);
   const currentPath = basePath ? `${basePath}/${currentFolder.name}` : currentFolder.name;
 
   const filesQ = await pool.query(
     "SELECT id, original_name, storage_key, mime_type, size_bytes FROM files WHERE folder_id = $1 AND owner_id = $2",
     [rootFolderId, userId]
   );
-  for (const f of filesQ.rows) {
+  for (const f of filesQ.rows.map(revealFileRow)) {
     result.push({
       id: f.id,
       archivePath: `${currentPath}/${f.original_name}`,
@@ -313,7 +358,7 @@ router.get("/folder/:id/download", requireAuth, async (req, res) => {
     ]);
     if (folderQ.rows.length === 0) return res.status(404).json({ error: "Folder not found" });
 
-    const folderName = folderQ.rows[0].name;
+    const folderName = revealFolderRow(folderQ.rows[0]).name;
     const fileItems = await collectFolderFiles(req.session.userId, folderId, "");
     const estimatedSize = fileItems.reduce((sum, item) => sum + item.sizeBytes, 0);
 
@@ -330,13 +375,25 @@ router.get("/folder/:id/download", requireAuth, async (req, res) => {
 
     archive.pipe(res);
 
+    logger.audit({
+      event: "FOLDER_DOWNLOAD_ZIP",
+      req,
+      userId: req.session.userId,
+      itemType: "folder",
+      itemId: folderId,
+      itemName: folderName,
+      details: { fileCount: fileItems.length, estimatedSize },
+      outcome: "SUCCESS",
+      statusCode: 200,
+    });
+
     for (const item of fileItems) {
       try {
         const encryptedBlob = await getObject(item.storageKey);
         const decrypted = decrypt(encryptedBlob);
         archive.append(decrypted, { name: item.archivePath });
       } catch (fileErr) {
-        console.error("Archive decrypt error for file:", item.archivePath, fileErr);
+        logger.error("Archive decrypt failed", fileErr);
       }
     }
 
@@ -362,7 +419,7 @@ router.post("/batch/download-zip", requireAuth, async (req, res) => {
         "SELECT id, original_name, storage_key, size_bytes FROM files WHERE id = ANY($1) AND owner_id = $2",
         [fileIds, req.session.userId]
       );
-      for (const file of filesQ.rows) {
+      for (const file of filesQ.rows.map(revealFileRow)) {
         archiveItems.push({
           originalName: file.original_name,
           storageKey: file.storage_key,
@@ -390,13 +447,25 @@ router.post("/batch/download-zip", requireAuth, async (req, res) => {
 
     archive.pipe(res);
 
+    logger.audit({
+      event: "FOLDER_DOWNLOAD_ZIP",
+      req,
+      userId: req.session.userId,
+      itemType: "folder",
+      itemId: folderId,
+      itemName: folderName,
+      details: { fileCount: fileItems.length, estimatedSize },
+      outcome: "SUCCESS",
+      statusCode: 200,
+    });
+
     for (const item of archiveItems) {
       try {
         const encrypted = await getObject(item.storageKey);
         const decrypted = decrypt(encrypted);
         archive.append(decrypted, { name: item.archivePath });
       } catch (e) {
-        console.error("Failed to add file to archive:", item.archivePath, e);
+        logger.error("Archive file append failed", e);
       }
     }
 
@@ -423,7 +492,9 @@ router.post("/batch/share", requireAuth, async (req, res) => {
     const maxViews = normalizeShareLimit(requestedMaxViews);
     const maxDownloads = normalizeShareLimit(requestedMaxDownloads);
     if (Number.isNaN(maxViews) || Number.isNaN(maxDownloads)) {
-      return res.status(400).json({ error: "Share limits must be whole numbers from 0 to 1000000000" });
+      return res
+        .status(400)
+        .json({ error: "Share limits must be whole numbers from 0 to 1000000000" });
     }
     const expiresInHoursInt = expiresInHours ? parseInt(expiresInHours, 10) : null;
     let expiresAt = null;
@@ -442,7 +513,7 @@ router.post("/batch/share", requireAuth, async (req, res) => {
         "SELECT id, original_name FROM files WHERE id = ANY($1) AND owner_id = $2",
         [fileIds, req.session.userId]
       );
-      for (const f of filesQ.rows) {
+      for (const f of filesQ.rows.map(revealFileRow)) {
         if (!seenIds.has(f.id)) {
           seenIds.add(f.id);
           allFileItems.push({ id: f.id, displayName: f.original_name });
@@ -463,7 +534,7 @@ router.post("/batch/share", requireAuth, async (req, res) => {
     }
 
     if (allFileItems.length === 0) {
-      return res.status(400).json({ error: "No accessible files found in selection" });
+      return res.status(400).json({ error: "No files found in selection" });
     }
 
     const shareToken = crypto.randomBytes(24).toString("hex");
@@ -480,7 +551,7 @@ router.post("/batch/share", requireAuth, async (req, res) => {
         accessTypeValue,
         maxViews,
         maxDownloads,
-        shareTitle,
+        encryptText(shareTitle),
         expiresAt,
       ]
     );
@@ -490,7 +561,7 @@ router.post("/batch/share", requireAuth, async (req, res) => {
     for (const item of allFileItems) {
       await pool.query(
         "INSERT INTO file_share_items (share_id, file_id, display_name) VALUES ($1, $2, $3)",
-        [share.id, item.id, item.displayName]
+        [share.id, item.id, encryptText(item.displayName)]
       );
     }
 
@@ -512,6 +583,7 @@ router.post("/batch/share", requireAuth, async (req, res) => {
 
     res.status(201).json({
       ...share,
+      title: decryptText(share.title),
       file_count: allFileItems.length,
     });
   } catch (err) {
@@ -534,17 +606,29 @@ router.get("/export/all", requireAuth, async (req, res) => {
 
     archive.pipe(res);
 
+    logger.audit({
+      event: "FOLDER_DOWNLOAD_ZIP",
+      req,
+      userId: req.session.userId,
+      itemType: "folder",
+      itemId: folderId,
+      itemName: folderName,
+      details: { fileCount: fileItems.length, estimatedSize },
+      outcome: "SUCCESS",
+      statusCode: 200,
+    });
+
     const rootFiles = await pool.query(
       "SELECT original_name, storage_key FROM files WHERE owner_id = $1 AND folder_id IS NULL",
       [req.session.userId]
     );
-    for (const rf of rootFiles.rows) {
+    for (const rf of rootFiles.rows.map(revealFileRow)) {
       try {
         const encrypted = await getObject(rf.storage_key);
         const decrypted = decrypt(encrypted);
         archive.append(decrypted, { name: rf.original_name });
       } catch (e) {
-        console.error("Root file export err:", rf.original_name, e);
+        logger.error("Root file export failed", e);
       }
     }
 
@@ -560,7 +644,7 @@ router.get("/export/all", requireAuth, async (req, res) => {
           const decrypted = decrypt(encrypted);
           archive.append(decrypted, { name: item.archivePath });
         } catch (e) {
-          console.error("Folder file export err:", item.archivePath, e);
+          logger.error("Folder file export failed", e);
         }
       }
     }
@@ -625,13 +709,13 @@ router.post(
        RETURNING id, original_name, size_bytes, mime_type, sha256, folder_id, uploaded_at, metadata, download_token`,
         [
           req.session.userId,
-          safeOriginalName,
-          storageKey,
+          encryptText(safeOriginalName),
+          encryptText(storageKey),
           req.file.size,
-          req.file.mimetype || "application/octet-stream",
-          sha256,
+          encryptText(req.file.mimetype || "application/octet-stream"),
+          encryptText(sha256),
           folderId,
-          JSON.stringify(metadata),
+          JSON.stringify(encryptJson(metadata)),
           downloadToken,
         ]
       );
@@ -651,7 +735,7 @@ router.post(
         },
       });
 
-      res.status(201).json(result.rows[0]);
+      res.status(201).json(revealFileRow(result.rows[0]));
     } catch (err) {
       logger.error("Upload error", err);
       res.status(500).json({ error: "Upload failed" });
@@ -685,6 +769,19 @@ router.patch("/:id/rename", requireAuth, async (req, res) => {
     const file = await fileRepository.renameFile(fileId, req.session.userId, name.trim());
 
     if (!file) return res.status(404).json({ error: "File not found" });
+
+    logger.audit({
+      event: "FILE_RENAME_SUCCESS",
+      req,
+      userId: req.session.userId,
+      itemType: "file",
+      itemId: fileId,
+      itemName: file.original_name,
+      details: { newName: file.original_name },
+      outcome: "SUCCESS",
+      statusCode: 200,
+    });
+
     res.json(file);
   } catch (err) {
     console.error("Rename file error:", err);
@@ -707,6 +804,19 @@ router.patch("/:id/move", requireAuth, async (req, res) => {
     const file = await fileRepository.moveSingleFile(fileId, req.session.userId, folderId);
 
     if (!file) return res.status(404).json({ error: "File not found" });
+
+    logger.audit({
+      event: "FILE_MOVE_SUCCESS",
+      req,
+      userId: req.session.userId,
+      itemType: "file",
+      itemId: fileId,
+      itemName: file.original_name,
+      details: { folderId },
+      outcome: "SUCCESS",
+      statusCode: 200,
+    });
+
     res.json(file);
   } catch (err) {
     console.error("Move file error:", err);
@@ -749,7 +859,7 @@ router.get("/:id/preview", requireAuth, async (req, res) => {
     );
     if (result.rows.length === 0) return res.status(404).json({ error: "File not found" });
 
-    const file = result.rows[0];
+    const file = revealFileRow(result.rows[0]);
     let plaintext = getCachedPreview(file.id);
 
     if (!plaintext) {
@@ -841,7 +951,7 @@ router.get("/:id/cover", requireAuth, async (req, res) => {
     );
     if (result.rows.length === 0) return res.status(404).json({ error: "File not found" });
 
-    const file = result.rows[0];
+    const file = revealFileRow(result.rows[0]);
     const mime = (file.mime_type || "").toLowerCase();
     const name = (file.original_name || "").toLowerCase();
     const isAudio =
@@ -885,6 +995,7 @@ router.get("/:id/cover", requireAuth, async (req, res) => {
 });
 
 async function serveDecryptedFile(file, req, res) {
+  revealFileRow(file);
   const blob = await getObject(file.storage_key);
   const plaintext = decrypt(blob);
 
@@ -927,7 +1038,7 @@ router.get("/download/:token", requireAuth, async (req, res) => {
       return res.status(404).json({ error: "File not found" });
     }
 
-    await serveDecryptedFile(result.rows[0], req, res);
+    await serveDecryptedFile(revealFileRow(result.rows[0]), req, res);
   } catch (err) {
     logger.error("Download error", err);
     res.status(500).json({ error: "Download failed" });
@@ -954,7 +1065,7 @@ router.get("/:id/download", requireAuth, async (req, res) => {
       return res.status(404).json({ error: "File not found" });
     }
 
-    await serveDecryptedFile(result.rows[0], req, res);
+    await serveDecryptedFile(revealFileRow(result.rows[0]), req, res);
   } catch (err) {
     logger.error("Download error", err);
     res.status(500).json({ error: "Download failed" });
@@ -971,13 +1082,16 @@ router.post("/:id/share", requireAuth, async (req, res) => {
       [fileId, req.session.userId]
     );
     if (fileQ.rows.length === 0) return res.status(404).json({ error: "File not found" });
+    revealFileRow(fileQ.rows[0]);
 
     const isPublic = req.body.isPublic !== false;
     const accessType = req.body.accessType === "edit" ? "edit" : "view";
     const maxViews = normalizeShareLimit(req.body.maxViews);
     const maxDownloads = normalizeShareLimit(req.body.maxDownloads);
     if (Number.isNaN(maxViews) || Number.isNaN(maxDownloads)) {
-      return res.status(400).json({ error: "Share limits must be whole numbers from 0 to 1000000000" });
+      return res
+        .status(400)
+        .json({ error: "Share limits must be whole numbers from 0 to 1000000000" });
     }
     const expiresInHours = req.body.expiresInHours ? parseInt(req.body.expiresInHours, 10) : null;
     let expiresAt = null;
@@ -991,7 +1105,16 @@ router.post("/:id/share", requireAuth, async (req, res) => {
       `INSERT INTO file_shares (file_id, owner_id, share_token, is_public, allow_download, access_type, max_views, max_downloads, expires_at)
        VALUES ($1, $2, $3, $4, true, $5, $6, $7, $8)
        RETURNING id, file_id, share_token, is_public, allow_download, access_type, max_views, max_downloads, created_at, expires_at`,
-      [fileId, req.session.userId, shareToken, isPublic, accessType, maxViews, maxDownloads, expiresAt]
+      [
+        fileId,
+        req.session.userId,
+        shareToken,
+        isPublic,
+        accessType,
+        maxViews,
+        maxDownloads,
+        expiresAt,
+      ]
     );
 
     logger.audit({
@@ -1163,7 +1286,7 @@ router.delete("/:id", requireAuth, async (req, res) => {
     }
 
     invalidatePreviewCache(req.params.id);
-    await deleteObject(result.rows[0].storage_key);
+    await deleteObject(decryptText(result.rows[0].storage_key));
     await pool.query("DELETE FROM files WHERE id = $1 AND owner_id = $2", [
       req.params.id,
       req.session.userId,

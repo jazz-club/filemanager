@@ -55,7 +55,7 @@ function csrfProtection(req, res, next) {
     });
 
     return res.status(403).json({
-      error: "missing cstf token",
+      error: "missing cstf token, try refreshing",
     });
   }
 

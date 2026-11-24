@@ -6,8 +6,26 @@ const { decrypt } = require("../crypto");
 const { getObject, copyObject } = require("../storage");
 const { extractAudioCover } = require("../audioCover");
 const logger = require("../logger");
+const { encryptText, decryptText, encryptJson, decryptJson, blindIndex } = require("../crypto");
 
 const router = Router();
+
+function revealFile(row) {
+  if (!row) return row;
+  if (row.original_name !== undefined) row.original_name = decryptText(row.original_name);
+  if (row.storage_key !== undefined) row.storage_key = decryptText(row.storage_key);
+  if (row.mime_type !== undefined) row.mime_type = decryptText(row.mime_type);
+  if (row.sha256 !== undefined) row.sha256 = decryptText(row.sha256);
+  if (row.metadata !== undefined) row.metadata = decryptJson(row.metadata);
+  if (row.display_name !== undefined) row.display_name = decryptText(row.display_name);
+  return row;
+}
+
+function revealShare(row) {
+  if (!row) return row;
+  if (row.title !== undefined) row.title = decryptText(row.title);
+  return revealFile(row);
+}
 
 function requireAuth(req, res, next) {
   if (!req.session || !req.session.userId) {
@@ -37,7 +55,7 @@ async function resolveShare(shareToken, sessionUserId) {
     return { error: "Share link not found or has been revoked", status: 404 };
   }
 
-  const share = result.rows[0];
+  const share = revealShare(result.rows[0]);
 
   if (share.expires_at && new Date(share.expires_at) < new Date()) {
     return { error: "Share link has expired", status: 410 };
@@ -99,12 +117,25 @@ router.get("/mine/summary", requireAuth, async (req, res) => {
       totalSaves += parseInt(s.saves_count, 10) || 0;
     });
 
+    const safeShares = sharesQ.rows.map((share) => {
+      share.original_name = decryptText(share.original_name);
+      share.mime_type = decryptText(share.mime_type);
+      share.title = decryptText(share.title);
+      const files = Array.isArray(share.shared_files) ? share.shared_files : [];
+      share.shared_files = files.map((file) => ({
+        ...file,
+        fileName: decryptText(file.fileName),
+        mimeType: decryptText(file.mimeType),
+      }));
+      return share;
+    });
+
     res.json({
       totalShares: sharesQ.rows.length,
       totalViews,
       totalDownloads,
       totalSaves,
-      shares: sharesQ.rows,
+      shares: safeShares,
     });
   } catch (err) {
     logger.error("Fetch user shares stats error", err);
@@ -149,7 +180,7 @@ router.get("/:token", async (req, res) => {
       );
 
       let totalBytes = 0;
-      const files = itemsQ.rows.map((r) => {
+      const files = itemsQ.rows.map(revealFile).map((r) => {
         const sz = parseInt(r.size_bytes, 10) || 0;
         totalBytes += sz;
         return {
@@ -180,6 +211,7 @@ router.get("/:token", async (req, res) => {
         savesCount: share.saves_count || 0,
         isOwner: sessionUserId === share.owner_id,
         userLoggedIn: !!sessionUserId,
+        userName: req.session ? req.session.username : null,
         uploadedAt: share.share_created_at,
         expiresAt: share.expires_at,
       });
@@ -204,6 +236,7 @@ router.get("/:token", async (req, res) => {
       savesCount: share.saves_count || 0,
       isOwner: sessionUserId === share.owner_id,
       userLoggedIn: !!sessionUserId,
+      userName: req.session ? req.session.username : null,
       uploadedAt: share.uploaded_at,
       expiresAt: share.expires_at,
     });
@@ -370,7 +403,7 @@ router.get("/:token/files/:fileId/preview", async (req, res) => {
       return res.status(404).json({ error: "File not found in this share" });
     }
 
-    await streamDecryptedFile(itemQ.rows[0], req, res);
+    await streamDecryptedFile(revealFile(itemQ.rows[0]), req, res);
   } catch (err) {
     logger.error("Public batch file preview error", err);
     res.status(500).json({ error: "Failed to load preview" });
@@ -397,7 +430,7 @@ router.get("/:token/files/:fileId/cover", async (req, res) => {
     );
 
     if (itemQ.rows.length === 0) return res.status(404).send("File not found");
-    const file = itemQ.rows[0];
+    const file = revealFile(itemQ.rows[0]);
 
     const blob = await getObject(file.storage_key);
     const plaintext = decrypt(blob);
@@ -440,7 +473,7 @@ router.get("/:token/files/:fileId/download", async (req, res) => {
       return res.status(404).json({ error: "File not found in this share" });
     }
 
-    const file = itemQ.rows[0];
+    const file = revealFile(itemQ.rows[0]);
     const sessionUserId = req.session ? req.session.userId : null;
     if (!(await recordShareDownload(share, sessionUserId))) {
       return res.status(410).json({ error: "This share link has reached its download limit" });
@@ -563,13 +596,13 @@ router.get("/:token/download", async (req, res) => {
       archive.on("error", (e) => console.error("Batch share zip error:", e));
       archive.pipe(res);
 
-      for (const item of itemsQ.rows) {
+      for (const item of itemsQ.rows.map(revealFile)) {
         try {
           const blob = await getObject(item.storage_key);
           const plaintext = decrypt(blob);
           archive.append(plaintext, { name: item.display_name || item.original_name });
         } catch (e) {
-          console.error("Failed to add file to batch share zip:", item.original_name, e);
+          logger.error("Batch share archive append failed", e);
         }
       }
 
@@ -660,12 +693,12 @@ router.post("/:token/save-to-vault", requireAuth, async (req, res) => {
         (isOwn ? "(Copy) " : "") +
         (share.title || `Shared Collection (${itemsQ.rows.length} files)`);
       const folderRes = await pool.query(
-        "INSERT INTO folders (owner_id, name) VALUES ($1, $2) RETURNING id",
-        [savingUserId, folderTitle]
+        "INSERT INTO folders (owner_id, name, name_hash) VALUES ($1, $2, $3) RETURNING id",
+        [savingUserId, encryptText(folderTitle), blindIndex(folderTitle)]
       );
       targetFolderId = folderRes.rows[0].id;
 
-      for (const item of itemsQ.rows) {
+      for (const item of itemsQ.rows.map(revealFile)) {
         const newStorageKey = savingUserId + "/" + crypto.randomUUID();
         await copyObject(item.storage_key, newStorageKey);
         const newDownloadToken = crypto.randomBytes(16).toString("hex");
@@ -678,13 +711,13 @@ router.post("/:token/save-to-vault", requireAuth, async (req, res) => {
            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
           [
             savingUserId,
-            itemName,
-            newStorageKey,
+            encryptText(itemName),
+            encryptText(newStorageKey),
             item.size_bytes,
-            item.mime_type,
-            item.sha256,
+            encryptText(item.mime_type),
+            item.sha256 ? encryptText(item.sha256) : null,
             targetFolderId,
-            item.metadata || {},
+            JSON.stringify(encryptJson(item.metadata || {})),
             newDownloadToken,
           ]
         );
@@ -701,12 +734,12 @@ router.post("/:token/save-to-vault", requireAuth, async (req, res) => {
          VALUES ($1, $2, $3, $4, $5, $6, NULL, $7, $8)`,
         [
           savingUserId,
-          savedName,
-          newStorageKey,
+          encryptText(savedName),
+          encryptText(newStorageKey),
           share.size_bytes,
-          share.mime_type,
-          share.sha256,
-          share.metadata || {},
+          encryptText(share.mime_type),
+          share.sha256 ? encryptText(share.sha256) : null,
+          JSON.stringify(encryptJson(share.metadata || {})),
           newDownloadToken,
         ]
       );
@@ -772,7 +805,7 @@ router.post("/:token/files/:fileId/save-to-vault", requireAuth, async (req, res)
       return res.status(404).json({ error: "File not found in this collection" });
     }
 
-    const item = itemQ.rows[0];
+    const item = revealFile(itemQ.rows[0]);
     const newStorageKey = savingUserId + "/" + crypto.randomUUID();
     await copyObject(item.storage_key, newStorageKey);
     const newDownloadToken = crypto.randomBytes(16).toString("hex");
@@ -785,12 +818,12 @@ router.post("/:token/files/:fileId/save-to-vault", requireAuth, async (req, res)
        VALUES ($1, $2, $3, $4, $5, $6, NULL, $7, $8)`,
       [
         savingUserId,
-        itemName,
-        newStorageKey,
+        encryptText(itemName),
+        encryptText(newStorageKey),
         item.size_bytes,
-        item.mime_type,
-        item.sha256,
-        item.metadata || {},
+        encryptText(item.mime_type),
+        item.sha256 ? encryptText(item.sha256) : null,
+        JSON.stringify(encryptJson(item.metadata || {})),
         newDownloadToken,
       ]
     );

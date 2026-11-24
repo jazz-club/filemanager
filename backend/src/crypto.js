@@ -38,4 +38,57 @@ function decrypt(blob) {
   return Buffer.concat([decipher.update(data), decipher.final()]);
 }
 
-module.exports = { encrypt, decrypt };
+const TEXT_PREFIX = "enc:v1:";
+const JSON_MARKER = "pke:v1";
+
+function encryptText(value) {
+  if (value === null || value === undefined) return value;
+  const text = String(value);
+  if (text.startsWith(TEXT_PREFIX)) return text;
+  return TEXT_PREFIX + encrypt(Buffer.from(text, "utf8")).ciphertext.toString("base64");
+}
+
+function decryptText(value) {
+  if (value === null || value === undefined) return value;
+  const text = String(value);
+  if (!text.startsWith(TEXT_PREFIX)) return text;
+  return decrypt(Buffer.from(text.slice(TEXT_PREFIX.length), "base64")).toString("utf8");
+}
+
+function encryptJson(value) {
+  if (value && typeof value === "object" && value[JSON_MARKER]) return value;
+  const raw = JSON.stringify(value === undefined ? null : value);
+  return { [JSON_MARKER]: encrypt(Buffer.from(raw, "utf8")).ciphertext.toString("base64") };
+}
+
+function decryptJson(value) {
+  if (!value || typeof value !== "object" || !value[JSON_MARKER]) return value;
+  const raw = decrypt(Buffer.from(value[JSON_MARKER], "base64")).toString("utf8");
+  return JSON.parse(raw);
+}
+
+function blindIndex(value) {
+  const salt = process.env.ENCRYPTION_SALT;
+  if (!salt) throw new Error("ENCRYPTION_SALT not initialised");
+  return crypto.createHmac("sha256", salt).update(String(value).trim().toLowerCase()).digest("hex");
+}
+
+function auditOwnerKey(userId) {
+  const salt = process.env.ENCRYPTION_SALT;
+  if (!salt) throw new Error("ENCRYPTION_SALT not initialised");
+  return crypto
+    .createHmac("sha256", salt)
+    .update("audit-owner:" + userId)
+    .digest("hex");
+}
+
+module.exports = {
+  encrypt,
+  decrypt,
+  encryptText,
+  decryptText,
+  encryptJson,
+  decryptJson,
+  blindIndex,
+  auditOwnerKey,
+};

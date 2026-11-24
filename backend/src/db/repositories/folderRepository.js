@@ -1,4 +1,10 @@
 const { pool } = require("../connection");
+const { encryptText, decryptText, blindIndex } = require("../../crypto");
+
+function decryptFolder(folder) {
+  if (folder && folder.name !== undefined) folder.name = decryptText(folder.name);
+  return folder;
+}
 
 async function listFolders(ownerId, parentId, includeAll = false) {
   let query =
@@ -10,9 +16,9 @@ async function listFolders(ownerId, parentId, includeAll = false) {
   } else if (!includeAll) {
     query += " AND parent_id IS NULL";
   }
-  query += " ORDER BY LOWER(name) ASC";
+  query += " ORDER BY id ASC";
   const result = await pool.query(query, params);
-  return result.rows;
+  return result.rows.map(decryptFolder).sort((a, b) => a.name.localeCompare(b.name));
 }
 
 async function getFolderById(folderId, ownerId) {
@@ -20,7 +26,7 @@ async function getFolderById(folderId, ownerId) {
     folderId,
     ownerId,
   ]);
-  return result.rows[0] || null;
+  return decryptFolder(result.rows[0] || null);
 }
 
 async function getFolderBreadcrumbs(folderId, ownerId) {
@@ -33,7 +39,7 @@ async function getFolderBreadcrumbs(folderId, ownerId) {
       [currentId, ownerId]
     );
     if (q.rows.length === 0) break;
-    const f = q.rows[0];
+    const f = decryptFolder(q.rows[0]);
     breadcrumbs.unshift({ id: f.id, name: f.name });
     currentId = f.parent_id;
   }
@@ -42,12 +48,12 @@ async function getFolderBreadcrumbs(folderId, ownerId) {
 
 async function createFolder(ownerId, name, parentId = null, color = "#ffffff") {
   const result = await pool.query(
-    `INSERT INTO folders (owner_id, name, parent_id, color)
-     VALUES ($1, $2, $3, $4)
+    `INSERT INTO folders (owner_id, name, name_hash, parent_id, color)
+     VALUES ($1, $2, $3, $4, $5)
      RETURNING id, name, parent_id, color, created_at, updated_at`,
-    [ownerId, name, parentId, color]
+    [ownerId, encryptText(name), blindIndex(name), parentId, color]
   );
-  return result.rows[0];
+  return decryptFolder(result.rows[0]);
 }
 
 async function updateFolderColor(folderId, ownerId, color) {
@@ -58,18 +64,18 @@ async function updateFolderColor(folderId, ownerId, color) {
      RETURNING id, name, parent_id, color, updated_at`,
     [color, folderId, ownerId]
   );
-  return result.rows[0] || null;
+  return decryptFolder(result.rows[0] || null);
 }
 
 async function renameFolder(folderId, ownerId, name) {
   const result = await pool.query(
     `UPDATE folders
-     SET name = $1, updated_at = NOW()
-     WHERE id = $2 AND owner_id = $3
+     SET name = $1, name_hash = $2, updated_at = NOW()
+     WHERE id = $3 AND owner_id = $4
      RETURNING id, name, parent_id, updated_at`,
-    [name, folderId, ownerId]
+    [encryptText(name), blindIndex(name), folderId, ownerId]
   );
-  return result.rows[0] || null;
+  return decryptFolder(result.rows[0] || null);
 }
 
 async function moveFolder(folderId, ownerId, targetParentId) {
@@ -80,7 +86,7 @@ async function moveFolder(folderId, ownerId, targetParentId) {
      RETURNING id, name, parent_id, color`,
     [targetParentId, folderId, ownerId]
   );
-  return result.rows[0] || null;
+  return decryptFolder(result.rows[0] || null);
 }
 
 async function getDescendantFolderIds(folderIds, ownerId) {
@@ -105,7 +111,7 @@ async function getFileStorageKeysByFolders(folderIds, ownerId) {
     "SELECT storage_key FROM files WHERE folder_id = ANY($1) AND owner_id = $2",
     [folderIds, ownerId]
   );
-  return result.rows.map((row) => row.storage_key);
+  return result.rows.map((row) => decryptText(row.storage_key));
 }
 
 async function deleteFolderRows(folderIds, ownerId) {

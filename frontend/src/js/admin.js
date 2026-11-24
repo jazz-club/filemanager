@@ -1,5 +1,5 @@
 var deleteUserModal = new bootstrap.Modal(document.getElementById("deleteUserModal"));
-var pendingDeleteUserId = null;
+var pendingDeleteAccountRef = null;
 
 var loginSection = document.getElementById("admin-login-section");
 var dashboardSection = document.getElementById("admin-dashboard-section");
@@ -8,6 +8,10 @@ var loginForm = document.getElementById("admin-login-form");
 var userInput = document.getElementById("admin-user-input");
 var passInput = document.getElementById("admin-pass-input");
 var msgEl = document.getElementById("admin-msg");
+var adminAuditState = { limit: 25, offset: 0, category: "all", outcome: "all", search: "" };
+var adminAccountState = { limit: 25, offset: 0, filter: "all", search: "" };
+var adminAuditSearchTimer = null;
+var adminAccountSearchTimer = null;
 
 function showAdminMsg(text, type) {
   if (!text) {
@@ -177,6 +181,109 @@ function loadAdminData() {
   loadAdminStats();
   loadAdminSettings();
   loadAdminUsers();
+  loadAdminAudit();
+}
+
+function loadAdminAudit() {
+  var tbody = document.getElementById("admin-audit-table-body");
+  if (!tbody) return;
+  var params = new URLSearchParams({
+    limit: adminAuditState.limit,
+    offset: adminAuditState.offset,
+    category: adminAuditState.category,
+    outcome: adminAuditState.outcome,
+    search: adminAuditState.search,
+  });
+  tbody.innerHTML =
+    '<tr><td colspan="5" class="text-muted text-center py-3">Loading activity...</td></tr>';
+  api("/admin/audit-logs?" + params.toString())
+    .then(function (r) {
+      if (!r.ok) throw new Error("Failed to load global audit log");
+      return r.json();
+    })
+    .then(function (data) {
+      adminAuditState.offset = data.offset || 0;
+      tbody.innerHTML = "";
+      (data.logs || []).forEach(function (log) {
+        var tr = document.createElement("tr");
+        [
+          new Date(log.createdAt).toLocaleString(),
+          adminEventLabel(log.event),
+          log.actorRef || log.targetRef || "-",
+          log.level,
+          log.outcome,
+        ].forEach(function (value) {
+          var td = document.createElement("td");
+          td.textContent = value || "-";
+          tr.appendChild(td);
+        });
+        tbody.appendChild(tr);
+      });
+      if (!tbody.children.length)
+        tbody.innerHTML =
+          '<tr><td colspan="5" class="text-muted text-center py-3">No audit entries</td></tr>';
+      updateAdminPager(
+        "admin-audit",
+        data.total || 0,
+        data.limit || adminAuditState.limit,
+        adminAuditState.offset
+      );
+    })
+    .catch(function (err) {
+      tbody.innerHTML =
+        '<tr><td colspan="5" class="text-danger text-center py-3">' + err.message + "</td></tr>";
+    });
+}
+
+function updateAdminPager(prefix, total, limit, offset) {
+  var info = document.getElementById(prefix + "-pagination-info");
+  var indicator = document.getElementById(prefix + "-page-indicator");
+  var previous = document.getElementById(prefix + "-prev");
+  var next = document.getElementById(prefix + "-next");
+  var totalPages = Math.max(1, Math.ceil(total / limit));
+  var page = Math.floor(offset / limit) + 1;
+  var end = Math.min(offset + limit, total);
+  if (info)
+    info.textContent = total
+      ? "Showing " +
+        (offset + 1) +
+        "–" +
+        end +
+        (prefix === "admin-audit" ? " entries" : " accounts")
+      : prefix === "admin-audit"
+        ? "Showing 0 entries"
+        : "Showing 0 accounts";
+  if (indicator) indicator.textContent = "Page " + page + " of " + totalPages;
+  if (previous) previous.disabled = offset <= 0;
+  if (next) next.disabled = offset + limit >= total;
+}
+
+function adminEventLabel(event) {
+  var labels = {
+    ADMIN_ACCOUNT_DELETED: "Pseudonymous account deleted",
+    ADMIN_REGISTRATION_SETTING_CHANGED: "Registration setting changed",
+    ADMIN_LOGIN_SUCCESS: "Admin sign-in succeeded",
+    ADMIN_LOGIN_FAILURE: "Admin sign-in failed",
+    ADMIN_LOCKOUT: "Admin sign-in locked out",
+    AUTH_LOGIN_SUCCESS: "User sign-in succeeded",
+    AUTH_LOGIN_FAILURE: "User sign-in failed",
+    AUTH_LOCKOUT: "User sign-in locked out",
+    FILE_UPLOAD_SUCCESS: "File uploaded",
+    FILE_DOWNLOAD: "File downloaded",
+    FILE_DELETE_SUCCESS: "File deleted",
+    FILE_SHARE_CREATED: "Share link created",
+    FILE_SHARE_REVOKED: "Share link revoked",
+    FILE_BATCH_SHARE_CREATED: "Collection link created",
+    AUTH_REGISTER_SUCCESS: "Account registered",
+    AUTH_PASSWORD_CHANGE_SUCCESS: "Password changed",
+  };
+  if (labels[event]) return labels[event];
+  return String(event || "System event")
+    .replace(/_/g, " ")
+    .toLowerCase()
+    .replace(/\b\w/g, function (letter) {
+      return letter.toUpperCase();
+    });
 }
 
 function loadAdminStats() {
@@ -185,10 +292,15 @@ function loadAdminStats() {
       return r.json();
     })
     .then(function (stats) {
-      document.getElementById("stat-users").textContent = stats.totalUsers || 0;
-      document.getElementById("stat-files").textContent = stats.totalFiles || 0;
       document.getElementById("stat-storage").textContent = formatBytes(stats.totalBytes || 0);
-      document.getElementById("stat-status").textContent = stats.status || "Healthy";
+      var status = document.getElementById("stat-status");
+      status.textContent = stats.status || "Unknown";
+      status.className =
+        "fw-bold mb-0 mt-1 " + (stats.status === "Healthy" ? "text-success" : "text-warning");
+      document.getElementById("stat-accounts").textContent = stats.accounts || 0;
+      document.getElementById("stat-active-shares").textContent = stats.activeShares || 0;
+      document.getElementById("stat-failed-signins").textContent = stats.failedSignIns24h || 0;
+      document.getElementById("stat-lockouts").textContent = stats.lockouts24h || 0;
     })
     .catch(function (e) {
       console.error("Stats load err:", e);
@@ -198,37 +310,42 @@ function loadAdminStats() {
 function loadAdminUsers() {
   var tbody = document.getElementById("admin-users-table-body");
   tbody.innerHTML =
-    '<tr><td colspan="6" class="text-center text-muted py-3">Loading users...</td></tr>';
+    '<tr><td colspan="3" class="text-center text-muted py-3">Loading accounts...</td></tr>';
+  var params = new URLSearchParams({
+    limit: adminAccountState.limit,
+    offset: adminAccountState.offset,
+    filter: adminAccountState.filter,
+    search: adminAccountState.search,
+  });
 
-  api("/admin/users")
+  api("/admin/users?" + params.toString())
     .then(function (r) {
+      if (!r.ok) throw new Error("Failed to load accounts");
       return r.json();
     })
-    .then(function (users) {
+    .then(function (data) {
+      adminAccountState.offset = data.offset || 0;
       tbody.innerHTML = "";
+      var users = data.users || [];
       if (!users || users.length === 0) {
         tbody.innerHTML =
-          '<tr><td colspan="6" class="text-center text-muted py-3">No user accounts found</td></tr>';
+          '<tr><td colspan="3" class="text-center text-muted py-3">No accounts found</td></tr>';
+        updateAdminPager(
+          "admin-account",
+          data.total || 0,
+          data.limit || adminAccountState.limit,
+          adminAccountState.offset
+        );
         return;
       }
 
       users.forEach(function (u) {
         var tr = document.createElement("tr");
 
-        var tdId = document.createElement("td");
-        tdId.className = "fw-bold font-monospace";
-        tdId.textContent = "#" + u.id;
-
-        var tdPseudo = document.createElement("td");
-        tdPseudo.className = "font-monospace small";
-        tdPseudo.textContent = u.pseudonym;
-
-        var tdDate = document.createElement("td");
-        tdDate.className = "small text-muted";
-        tdDate.textContent = formatDate(u.createdAt);
-
-        var tdFiles = document.createElement("td");
-        tdFiles.textContent = u.fileCount;
+        var tdRef = document.createElement("td");
+        tdRef.className = "font-monospace small";
+        tdRef.textContent = "acct_" + String(u.accountRef || "").slice(0, 10);
+        tdRef.title = "Stable pseudonymous account reference";
 
         var tdSize = document.createElement("td");
         tdSize.className = "fw-semibold";
@@ -240,39 +357,131 @@ function loadAdminUsers() {
         var delBtn = document.createElement("button");
         delBtn.className = "btn btn-sm btn-outline-danger";
         delBtn.textContent = "Delete Account";
+        delBtn.title = "Delete " + tdRef.textContent;
         delBtn.onclick = function () {
-          pendingDeleteUserId = u.id;
-          document.getElementById("delete-target-id").textContent = u.id;
-          document.getElementById("delete-target-pseudonym").textContent = u.pseudonym;
+          pendingDeleteAccountRef = u.accountRef;
           deleteUserModal.show();
         };
 
         tdActions.appendChild(delBtn);
 
-        tr.appendChild(tdId);
-        tr.appendChild(tdPseudo);
-        tr.appendChild(tdDate);
-        tr.appendChild(tdFiles);
+        tr.appendChild(tdRef);
         tr.appendChild(tdSize);
         tr.appendChild(tdActions);
 
         tbody.appendChild(tr);
       });
+      updateAdminPager(
+        "admin-account",
+        data.total || 0,
+        data.limit || adminAccountState.limit,
+        adminAccountState.offset
+      );
     })
     .catch(function (e) {
       tbody.innerHTML =
-        '<tr><td colspan="6" class="text-center text-danger py-3">Failed to load users</td></tr>';
+        '<tr><td colspan="3" class="text-center text-danger py-3">Failed to load accounts</td></tr>';
       console.error(e);
     });
 }
 
 document.getElementById("admin-refresh-users-btn").onclick = function () {
-  loadAdminData();
+  loadAdminUsers();
 };
+var adminAuditRefresh = document.getElementById("admin-refresh-audit-btn");
+if (adminAuditRefresh) adminAuditRefresh.onclick = loadAdminAudit;
+
+var adminAuditPrev = document.getElementById("admin-audit-prev");
+var adminAuditNext = document.getElementById("admin-audit-next");
+if (adminAuditPrev)
+  adminAuditPrev.onclick = function () {
+    adminAuditState.offset = Math.max(0, adminAuditState.offset - adminAuditState.limit);
+    loadAdminAudit();
+  };
+if (adminAuditNext)
+  adminAuditNext.onclick = function () {
+    adminAuditState.offset += adminAuditState.limit;
+    loadAdminAudit();
+  };
+document.querySelectorAll("[data-admin-audit-category]").forEach(function (button) {
+  button.onclick = function () {
+    adminAuditState.category = button.getAttribute("data-admin-audit-category");
+    adminAuditState.offset = 0;
+    document.getElementById("admin-audit-category-btn").textContent = button.textContent.trim();
+    loadAdminAudit();
+  };
+});
+document.querySelectorAll("[data-admin-audit-outcome]").forEach(function (button) {
+  button.onclick = function () {
+    adminAuditState.outcome = button.getAttribute("data-admin-audit-outcome");
+    adminAuditState.offset = 0;
+    document.getElementById("admin-audit-outcome-btn").textContent = button.textContent.trim();
+    loadAdminAudit();
+  };
+});
+document.querySelectorAll("[data-admin-audit-limit]").forEach(function (button) {
+  button.onclick = function () {
+    adminAuditState.limit = parseInt(button.getAttribute("data-admin-audit-limit"), 10) || 25;
+    adminAuditState.offset = 0;
+    document.getElementById("admin-audit-limit-btn").textContent =
+      adminAuditState.limit + " per page";
+    loadAdminAudit();
+  };
+});
+var adminAuditSearch = document.getElementById("admin-audit-search");
+if (adminAuditSearch)
+  adminAuditSearch.oninput = function () {
+    clearTimeout(adminAuditSearchTimer);
+    adminAuditSearchTimer = setTimeout(function () {
+      adminAuditState.search = adminAuditSearch.value.trim();
+      adminAuditState.offset = 0;
+      loadAdminAudit();
+    }, 180);
+  };
+
+var adminAccountPrev = document.getElementById("admin-account-prev");
+var adminAccountNext = document.getElementById("admin-account-next");
+if (adminAccountPrev)
+  adminAccountPrev.onclick = function () {
+    adminAccountState.offset = Math.max(0, adminAccountState.offset - adminAccountState.limit);
+    loadAdminUsers();
+  };
+if (adminAccountNext)
+  adminAccountNext.onclick = function () {
+    adminAccountState.offset += adminAccountState.limit;
+    loadAdminUsers();
+  };
+document.querySelectorAll("[data-admin-account-filter]").forEach(function (button) {
+  button.onclick = function () {
+    adminAccountState.filter = button.getAttribute("data-admin-account-filter");
+    adminAccountState.offset = 0;
+    document.getElementById("admin-account-filter-btn").textContent = button.textContent.trim();
+    loadAdminUsers();
+  };
+});
+document.querySelectorAll("[data-admin-account-limit]").forEach(function (button) {
+  button.onclick = function () {
+    adminAccountState.limit = parseInt(button.getAttribute("data-admin-account-limit"), 10) || 25;
+    adminAccountState.offset = 0;
+    document.getElementById("admin-account-limit-btn").textContent =
+      adminAccountState.limit + " per page";
+    loadAdminUsers();
+  };
+});
+var adminAccountSearch = document.getElementById("admin-account-search");
+if (adminAccountSearch)
+  adminAccountSearch.oninput = function () {
+    clearTimeout(adminAccountSearchTimer);
+    adminAccountSearchTimer = setTimeout(function () {
+      adminAccountState.search = adminAccountSearch.value.trim();
+      adminAccountState.offset = 0;
+      loadAdminUsers();
+    }, 180);
+  };
 
 document.getElementById("confirm-admin-delete-btn").onclick = function () {
-  if (!pendingDeleteUserId) return;
-  var targetId = pendingDeleteUserId;
+  if (!pendingDeleteAccountRef) return;
+  var targetId = pendingDeleteAccountRef;
 
   api("/admin/users/" + targetId, { method: "DELETE" })
     .then(function (r) {

@@ -19,11 +19,18 @@
     <link rel="stylesheet" href="/src/css/bootstrap.min.css" />
     <link rel="stylesheet" href="/src/css/style.css" />
   </head>
+
   <body>
     <nav class="navbar navbar-expand navbar-light bg-white mb-4 shadow-sm">
       <div class="container-lg">
-        <a class="navbar-brand fw-bold d-flex align-items-center gap-2" href="/admin">
-          <span>PinkBox ❤︎ Admin Panel</span>
+        <a class="navbar-brand fw-bold d-flex align-items-center gap-2">
+          <span>PinkBox</span>
+          <span
+            class="brand-heart-emoji"
+            style="color: #ff3385; font-size: 1.15rem; line-height: 1; user-select: none"
+            >❤︎</span
+          >
+          <span class="badge bg-primary monospace" style="font-size: 0.75rem">ADMIN PANEL</span>
         </a>
         <div class="d-flex align-items-center gap-2" id="admin-nav-actions">
           <a href="/login" class="btn btn-sm btn-white">User Portal</a>
@@ -82,28 +89,40 @@
 
       <div id="admin-dashboard-section" class="d-none">
         <div class="row g-3 mb-4">
-          <div class="col-6 col-md-3">
-            <div class="card p-3 shadow-sm border-0 text-center">
-              <span class="small text-muted d-block">Total Users</span>
-              <h3 class="fw-bold mb-0 mt-1" id="stat-users">0</h3>
-            </div>
-          </div>
-          <div class="col-6 col-md-3">
-            <div class="card p-3 shadow-sm border-0 text-center">
-              <span class="small text-muted d-block">Total Files</span>
-              <h3 class="fw-bold mb-0 mt-1" id="stat-files">0</h3>
-            </div>
-          </div>
-          <div class="col-6 col-md-3">
-            <div class="card p-3 shadow-sm border-0 text-center">
-              <span class="small text-muted d-block">Storage</span>
+          <div class="col-6 col-lg-2">
+            <div class="card p-3 shadow-sm border-0 text-center h-100">
+              <span class="small text-muted d-block">Storage Used</span>
               <h3 class="fw-bold mb-0 mt-1" id="stat-storage">0 B</h3>
             </div>
           </div>
-          <div class="col-6 col-md-3">
-            <div class="card p-3 shadow-sm border-0 text-center">
+          <div class="col-6 col-lg-2">
+            <div class="card p-3 shadow-sm border-0 text-center h-100">
               <span class="small text-muted d-block">System Status</span>
               <h3 class="fw-bold mb-0 mt-1 text-success" id="stat-status">Healthy</h3>
+            </div>
+          </div>
+          <div class="col-6 col-lg-2">
+            <div class="card p-3 shadow-sm border-0 text-center h-100">
+              <span class="small text-muted d-block">Accounts</span>
+              <h3 class="fw-bold mb-0 mt-1" id="stat-accounts">0</h3>
+            </div>
+          </div>
+          <div class="col-6 col-lg-2">
+            <div class="card p-3 shadow-sm border-0 text-center h-100">
+              <span class="small text-muted d-block">Active Links</span>
+              <h3 class="fw-bold mb-0 mt-1" id="stat-active-shares">0</h3>
+            </div>
+          </div>
+          <div class="col-6 col-lg-2">
+            <div class="card p-3 shadow-sm border-0 text-center h-100">
+              <span class="small text-muted d-block">Sign-in Failures · 24h</span>
+              <h3 class="fw-bold mb-0 mt-1" id="stat-failed-signins">0</h3>
+            </div>
+          </div>
+          <div class="col-6 col-lg-2">
+            <div class="card p-3 shadow-sm border-0 text-center h-100">
+              <span class="small text-muted d-block">Lockouts · 24h</span>
+              <h3 class="fw-bold mb-0 mt-1" id="stat-lockouts">0</h3>
             </div>
           </div>
         </div>
@@ -129,25 +148,337 @@
 
         <div class="card shadow-sm border-0 mb-4 overflow-hidden">
           <div
-            class="card-header bg-white py-3 border-bottom d-flex justify-content-between align-items-center"
+            class="card-header bg-white py-3 border-bottom d-flex flex-wrap justify-content-between align-items-center gap-2"
           >
             <h5 class="fw-bold mb-0">Managed Accounts</h5>
             <button id="admin-refresh-users-btn" class="btn btn-sm btn-white">Refresh List</button>
+          </div>
+          <div
+            class="admin-filter-toolbar d-flex flex-wrap align-items-center gap-2 p-2 border-bottom"
+          >
+            <input
+              type="search"
+              id="admin-account-search"
+              class="form-control form-control-sm border-dark"
+              placeholder="Find account reference"
+              aria-label="Find pseudonymous account reference"
+            />
+            <div class="dropdown admin-filter-dropdown">
+              <button
+                type="button"
+                class="toolbar-btn dropdown-toggle"
+                id="admin-account-filter-btn"
+                data-bs-toggle="dropdown"
+                aria-expanded="false"
+              >
+                All Accounts
+              </button>
+              <ul
+                class="dropdown-menu shadow-sm border-dark"
+                aria-labelledby="admin-account-filter-btn"
+              >
+                <li>
+                  <button type="button" class="dropdown-item py-1" data-admin-account-filter="all">
+                    All Accounts
+                  </button>
+                </li>
+                <li>
+                  <button
+                    type="button"
+                    class="dropdown-item py-1"
+                    data-admin-account-filter="stored"
+                  >
+                    Has Storage
+                  </button>
+                </li>
+                <li>
+                  <button
+                    type="button"
+                    class="dropdown-item py-1"
+                    data-admin-account-filter="empty"
+                  >
+                    No Storage
+                  </button>
+                </li>
+              </ul>
+            </div>
+            <div class="dropdown admin-filter-dropdown">
+              <button
+                type="button"
+                class="toolbar-btn dropdown-toggle"
+                id="admin-account-limit-btn"
+                data-bs-toggle="dropdown"
+                aria-expanded="false"
+              >
+                25 per page
+              </button>
+              <ul
+                class="dropdown-menu dropdown-menu-end shadow-sm border-dark"
+                aria-labelledby="admin-account-limit-btn"
+              >
+                <li>
+                  <button type="button" class="dropdown-item py-1" data-admin-account-limit="10">
+                    10 per page
+                  </button>
+                </li>
+                <li>
+                  <button type="button" class="dropdown-item py-1" data-admin-account-limit="25">
+                    25 per page
+                  </button>
+                </li>
+                <li>
+                  <button type="button" class="dropdown-item py-1" data-admin-account-limit="50">
+                    50 per page
+                  </button>
+                </li>
+                <li>
+                  <button type="button" class="dropdown-item py-1" data-admin-account-limit="100">
+                    100 per page
+                  </button>
+                </li>
+              </ul>
+            </div>
           </div>
           <div class="table-responsive">
             <table class="table table-hover align-middle mb-0">
               <thead class="table-light">
                 <tr>
-                  <th scope="col" style="width: 80px">User ID</th>
-                  <th scope="col">Blind Pseudonym</th>
-                  <th scope="col">Registered</th>
-                  <th scope="col">Files</th>
+                  <th scope="col">Account Reference</th>
                   <th scope="col">Storage Used</th>
                   <th scope="col" class="text-end" style="width: 140px">Actions</th>
                 </tr>
               </thead>
               <tbody id="admin-users-table-body"></tbody>
             </table>
+          </div>
+          <div
+            class="admin-pagination d-flex flex-wrap justify-content-between align-items-center gap-2 p-2 border-top"
+          >
+            <span id="admin-account-pagination-info" class="small text-muted font-monospace"
+              >Showing 0 accounts</span
+            >
+            <div class="d-flex flex-wrap align-items-center gap-2">
+              <span id="admin-account-page-indicator" class="small text-muted font-monospace"
+                >Page 1 of 1</span
+              >
+              <button
+                type="button"
+                class="btn btn-sm btn-white border border-dark fw-bold"
+                id="admin-account-prev"
+              >
+                ‹ Previous
+              </button>
+              <button
+                type="button"
+                class="btn btn-sm btn-white border border-dark fw-bold"
+                id="admin-account-next"
+              >
+                Next ›
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div class="card shadow-sm border-0 mb-4 overflow-hidden">
+          <div
+            class="card-header bg-white py-3 d-flex flex-wrap justify-content-between align-items-center gap-2"
+          >
+            <h5 class="fw-bold mb-0">Global Audit Log</h5>
+            <button id="admin-refresh-audit-btn" class="btn btn-sm btn-white">Refresh</button>
+          </div>
+          <div class="admin-filter-toolbar d-flex flex-wrap align-items-center gap-2 p-2">
+            <input
+              type="search"
+              id="admin-audit-search"
+              class="form-control form-control-sm border-dark"
+              placeholder="Search activity"
+              aria-label="Search global audit activity"
+            />
+            <div class="dropdown admin-filter-dropdown">
+              <button
+                type="button"
+                class="toolbar-btn dropdown-toggle"
+                id="admin-audit-category-btn"
+                data-bs-toggle="dropdown"
+                aria-expanded="false"
+              >
+                All Activity
+              </button>
+              <ul
+                class="dropdown-menu shadow-sm border-dark"
+                aria-labelledby="admin-audit-category-btn"
+              >
+                <li>
+                  <button type="button" class="dropdown-item py-1" data-admin-audit-category="all">
+                    All Activity
+                  </button>
+                </li>
+                <li>
+                  <button
+                    type="button"
+                    class="dropdown-item py-1"
+                    data-admin-audit-category="security"
+                  >
+                    Security
+                  </button>
+                </li>
+                <li>
+                  <button
+                    type="button"
+                    class="dropdown-item py-1"
+                    data-admin-audit-category="accounts"
+                  >
+                    Account Changes
+                  </button>
+                </li>
+                <li>
+                  <button
+                    type="button"
+                    class="dropdown-item py-1"
+                    data-admin-audit-category="files"
+                  >
+                    Files &amp; Folders
+                  </button>
+                </li>
+                <li>
+                  <button
+                    type="button"
+                    class="dropdown-item py-1"
+                    data-admin-audit-category="shares"
+                  >
+                    Shares
+                  </button>
+                </li>
+              </ul>
+            </div>
+            <div class="dropdown admin-filter-dropdown">
+              <button
+                type="button"
+                class="toolbar-btn dropdown-toggle"
+                id="admin-audit-outcome-btn"
+                data-bs-toggle="dropdown"
+                aria-expanded="false"
+              >
+                All Outcomes
+              </button>
+              <ul
+                class="dropdown-menu shadow-sm border-dark"
+                aria-labelledby="admin-audit-outcome-btn"
+              >
+                <li>
+                  <button type="button" class="dropdown-item py-1" data-admin-audit-outcome="all">
+                    All Outcomes
+                  </button>
+                </li>
+                <li>
+                  <button
+                    type="button"
+                    class="dropdown-item py-1"
+                    data-admin-audit-outcome="SUCCESS"
+                  >
+                    Success
+                  </button>
+                </li>
+                <li>
+                  <button
+                    type="button"
+                    class="dropdown-item py-1"
+                    data-admin-audit-outcome="FAILURE"
+                  >
+                    Failure
+                  </button>
+                </li>
+                <li>
+                  <button
+                    type="button"
+                    class="dropdown-item py-1"
+                    data-admin-audit-outcome="BLOCKED"
+                  >
+                    Blocked
+                  </button>
+                </li>
+              </ul>
+            </div>
+            <div class="dropdown admin-filter-dropdown">
+              <button
+                type="button"
+                class="toolbar-btn dropdown-toggle"
+                id="admin-audit-limit-btn"
+                data-bs-toggle="dropdown"
+                aria-expanded="false"
+              >
+                25 per page
+              </button>
+              <ul
+                class="dropdown-menu dropdown-menu-end shadow-sm border-dark"
+                aria-labelledby="admin-audit-limit-btn"
+              >
+                <li>
+                  <button type="button" class="dropdown-item py-1" data-admin-audit-limit="10">
+                    10 per page
+                  </button>
+                </li>
+                <li>
+                  <button type="button" class="dropdown-item py-1" data-admin-audit-limit="25">
+                    25 per page
+                  </button>
+                </li>
+                <li>
+                  <button type="button" class="dropdown-item py-1" data-admin-audit-limit="50">
+                    50 per page
+                  </button>
+                </li>
+                <li>
+                  <button type="button" class="dropdown-item py-1" data-admin-audit-limit="100">
+                    100 per page
+                  </button>
+                </li>
+              </ul>
+            </div>
+          </div>
+          <div class="table-responsive">
+            <table class="table table-sm table-hover mb-0">
+              <thead class="table-light">
+                <tr>
+                  <th>Time</th>
+                  <th>Activity</th>
+                  <th>Account Ref</th>
+                  <th>Severity</th>
+                  <th>Outcome</th>
+                </tr>
+              </thead>
+              <tbody id="admin-audit-table-body">
+                <tr>
+                  <td colspan="5" class="text-muted text-center py-3">Loading audit log...</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <div
+            class="admin-pagination d-flex flex-wrap justify-content-between align-items-center gap-2 p-2 border-top"
+          >
+            <span id="admin-audit-pagination-info" class="small text-muted font-monospace"
+              >Showing 0 entries</span
+            >
+            <div class="d-flex flex-wrap align-items-center gap-2">
+              <span id="admin-audit-page-indicator" class="small text-muted font-monospace"
+                >Page 1 of 1</span
+              >
+              <button
+                type="button"
+                class="btn btn-sm btn-white border border-dark fw-bold"
+                id="admin-audit-prev"
+              >
+                ‹ Previous
+              </button>
+              <button
+                type="button"
+                class="btn btn-sm btn-white border border-dark fw-bold"
+                id="admin-audit-next"
+              >
+                Next ›
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -169,10 +500,7 @@
             </button>
           </div>
           <div class="modal-body">
-            <p class="text-danger fw-bold mb-2">
-              fuck em? like (<span id="delete-target-pseudonym"></span>, ID:
-              <span id="delete-target-id"></span>)
-            </p>
+            <p class="text-danger fw-bold mb-2">Delete this account?</p>
           </div>
           <div class="modal-footer">
             <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>

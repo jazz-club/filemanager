@@ -1,6 +1,13 @@
 const crypto = require("crypto");
 const { pool } = require("./connection");
-const { encrypt } = require("../crypto");
+const {
+  encrypt,
+  encryptText,
+  decryptText,
+  encryptJson,
+  blindIndex,
+  auditOwnerKey,
+} = require("../crypto");
 
 async function initDB() {
   await pool.query(`
@@ -17,6 +24,7 @@ async function initDB() {
       id SERIAL PRIMARY KEY,
       owner_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
       name VARCHAR(255) NOT NULL,
+      name_hash VARCHAR(64),
       parent_id INTEGER REFERENCES folders(id) ON DELETE CASCADE,
       color VARCHAR(32) DEFAULT '#ffffff',
       created_at TIMESTAMPTZ DEFAULT NOW(),
@@ -83,13 +91,37 @@ async function initDB() {
       display_name TEXT
     );
 
+    CREATE TABLE IF NOT EXISTS audit_logs (
+      id SERIAL PRIMARY KEY,
+      user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+      username VARCHAR(255),
+      event VARCHAR(64) NOT NULL,
+      action TEXT NOT NULL,
+      level VARCHAR(16) NOT NULL DEFAULT 'INFO',
+      outcome VARCHAR(16) NOT NULL DEFAULT 'SUCCESS',
+      status_code INTEGER DEFAULT 200,
+      ip VARCHAR(64),
+      method VARCHAR(16),
+      path TEXT,
+      item_type VARCHAR(32),
+      item_id INTEGER,
+      item_name TEXT,
+      details JSONB DEFAULT '{}',
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    );
+
     ALTER TABLE files ADD COLUMN IF NOT EXISTS sha256 TEXT;
     ALTER TABLE files ADD COLUMN IF NOT EXISTS folder_id INTEGER REFERENCES folders(id) ON DELETE SET NULL;
     ALTER TABLE files ADD COLUMN IF NOT EXISTS metadata JSONB DEFAULT '{}';
     ALTER TABLE files ADD COLUMN IF NOT EXISTS download_token VARCHAR(64) UNIQUE;
     ALTER TABLE folders ADD COLUMN IF NOT EXISTS color VARCHAR(32) DEFAULT '#ffffff';
+    ALTER TABLE folders ADD COLUMN IF NOT EXISTS name_hash VARCHAR(64);
     ALTER TABLE users ADD COLUMN IF NOT EXISTS username_hash VARCHAR(64) UNIQUE;
     ALTER TABLE users ADD COLUMN IF NOT EXISTS encrypted_username TEXT;
+    ALTER TABLE audit_logs DROP COLUMN IF EXISTS ip;
+    ALTER TABLE audit_logs DROP CONSTRAINT IF EXISTS audit_logs_user_id_fkey;
+    ALTER TABLE audit_logs ALTER COLUMN user_id TYPE VARCHAR(64) USING user_id::text;
+    DELETE FROM login_attempts WHERE identifier NOT LIKE 'rl:v1:%';
 
     ALTER TABLE file_shares ALTER COLUMN file_id DROP NOT NULL;
     ALTER TABLE file_shares ADD COLUMN IF NOT EXISTS is_batch BOOLEAN NOT NULL DEFAULT false;
@@ -108,6 +140,9 @@ async function initDB() {
     CREATE INDEX IF NOT EXISTS idx_session_expire ON session (expire);
     CREATE INDEX IF NOT EXISTS idx_login_attempts_locked ON login_attempts (locked_until);
     CREATE INDEX IF NOT EXISTS idx_file_shares_token ON file_shares (share_token);
+    CREATE INDEX IF NOT EXISTS idx_audit_logs_user_id ON audit_logs (user_id);
+    CREATE INDEX IF NOT EXISTS idx_audit_logs_created_at ON audit_logs (created_at DESC);
+    CREATE INDEX IF NOT EXISTS idx_audit_logs_event ON audit_logs (event);
     CREATE INDEX IF NOT EXISTS idx_file_shares_file ON file_shares (file_id);
     CREATE INDEX IF NOT EXISTS idx_file_shares_owner ON file_shares (owner_id);
     CREATE INDEX IF NOT EXISTS idx_file_share_items_share ON file_share_items (share_id);
@@ -116,6 +151,8 @@ async function initDB() {
     INSERT INTO system_settings (key, value) VALUES ('allow_registration', 'true')
     ON CONFLICT (key) DO NOTHING;
   `);
+
+  await migrateSensitiveMetadata();
 
   try {
     const unmigratedTokens = await pool.query("SELECT id FROM files WHERE download_token IS NULL");
@@ -146,6 +183,91 @@ async function initDB() {
   } catch (migErr) {
     console.error("User privacy migration error:", migErr);
   }
+}
+
+async function migrateSensitiveMetadata() {
+  const files = await pool.query(
+    `SELECT id, original_name, storage_key, mime_type, sha256, metadata
+     FROM files
+     WHERE original_name NOT LIKE 'enc:v1:%'
+        OR storage_key NOT LIKE 'enc:v1:%'
+        OR mime_type NOT LIKE 'enc:v1:%'
+        OR (sha256 IS NOT NULL AND sha256 NOT LIKE 'enc:v1:%')
+        OR COALESCE(metadata->>'pke:v1', '') = ''`
+  );
+  for (const row of files.rows) {
+    await pool.query(
+      `UPDATE files SET original_name = $1, storage_key = $2, mime_type = $3, sha256 = $4, metadata = $5 WHERE id = $6`,
+      [
+        encryptText(row.original_name),
+        encryptText(row.storage_key),
+        encryptText(row.mime_type),
+        row.sha256 === null ? null : encryptText(row.sha256),
+        encryptJson(row.metadata || {}),
+        row.id,
+      ]
+    );
+  }
+
+  const folders = await pool.query(
+    "SELECT id, name, name_hash FROM folders WHERE name NOT LIKE 'enc:v1:%' OR name_hash IS NULL"
+  );
+  for (const row of folders.rows) {
+    const name = decryptText(row.name);
+    await pool.query("UPDATE folders SET name = $1, name_hash = $2 WHERE id = $3", [
+      encryptText(name),
+      blindIndex(name),
+      row.id,
+    ]);
+  }
+
+  const titles = await pool.query(
+    "SELECT id, title FROM file_shares WHERE title IS NOT NULL AND title NOT LIKE 'enc:v1:%'"
+  );
+  for (const row of titles.rows) {
+    await pool.query("UPDATE file_shares SET title = $1 WHERE id = $2", [
+      encryptText(row.title),
+      row.id,
+    ]);
+  }
+
+  const displayNames = await pool.query(
+    "SELECT id, display_name FROM file_share_items WHERE display_name IS NOT NULL AND display_name NOT LIKE 'enc:v1:%'"
+  );
+  for (const row of displayNames.rows) {
+    await pool.query("UPDATE file_share_items SET display_name = $1 WHERE id = $2", [
+      encryptText(row.display_name),
+      row.id,
+    ]);
+  }
+
+  const auditRows = await pool.query(
+    `SELECT id, user_id, username, action, path, item_id, item_name, details FROM audit_logs
+     WHERE (username IS NOT NULL AND username NOT LIKE 'enc:v1:%')
+        OR action NOT LIKE 'enc:v1:%'
+        OR (path IS NOT NULL AND path NOT LIKE 'enc:v1:%')
+        OR (item_name IS NOT NULL AND item_name NOT LIKE 'enc:v1:%')
+        OR (user_id IS NOT NULL AND user_id !~ '^[a-f0-9]{64}$')
+        OR item_id IS NOT NULL
+        OR COALESCE(details->>'pke:v1', '') = ''`
+  );
+  for (const row of auditRows.rows) {
+    await pool.query(
+      "UPDATE audit_logs SET username = $1, action = $2, path = $3, item_id = NULL, item_name = $4, details = $5, user_id = $6 WHERE id = $7",
+      [
+        row.username === null ? null : encryptText(row.username),
+        encryptText(row.action),
+        row.path && !String(row.path).startsWith("enc:v1:") ? encryptText(row.path) : row.path,
+        row.item_name === null ? null : encryptText(row.item_name),
+        encryptJson(row.details || {}),
+        row.user_id && !/^[a-f0-9]{64}$/.test(String(row.user_id))
+          ? auditOwnerKey(row.user_id)
+          : row.user_id,
+        row.id,
+      ]
+    );
+  }
+  await pool.query("UPDATE audit_logs SET item_id = NULL WHERE item_id IS NOT NULL");
 }
 
 module.exports = {

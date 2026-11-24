@@ -1,4 +1,17 @@
 const { pool } = require("../connection");
+const { encryptText, decryptText, decryptJson } = require("../../crypto");
+
+function revealFile(row) {
+  if (!row) return row;
+  if (row.original_name !== undefined) row.original_name = decryptText(row.original_name);
+  if (row.storage_key !== undefined) row.storage_key = decryptText(row.storage_key);
+  if (row.mime_type !== undefined) row.mime_type = decryptText(row.mime_type);
+  if (row.sha256 !== undefined) row.sha256 = decryptText(row.sha256);
+  if (row.metadata !== undefined) row.metadata = decryptJson(row.metadata);
+  if (row.display_name !== undefined) row.display_name = decryptText(row.display_name);
+  if (row.title !== undefined) row.title = decryptText(row.title);
+  return row;
+}
 
 async function createSingleShare({
   fileId,
@@ -30,17 +43,17 @@ async function createBatchShare({
     `INSERT INTO file_shares (owner_id, share_token, is_public, allow_download, is_batch, title, file_id, expires_at)
      VALUES ($1, $2, $3, $4, true, $5, NULL, $6)
      RETURNING id, share_token, is_public, allow_download, is_batch, title, expires_at, created_at`,
-    [ownerId, shareToken, isPublic, allowDownload, title, expiresAt]
+    [ownerId, shareToken, isPublic, allowDownload, encryptText(title), expiresAt]
   );
   const share = shareQ.rows[0];
 
   for (const item of items) {
     await pool.query(
       "INSERT INTO file_share_items (share_id, file_id, display_name) VALUES ($1, $2, $3)",
-      [share.id, item.id, item.displayName]
+      [share.id, item.id, encryptText(item.displayName)]
     );
   }
-  return share;
+  return revealFile(share);
 }
 
 async function getShareByToken(token) {
@@ -54,7 +67,7 @@ async function getShareByToken(token) {
      WHERE s.share_token = $1`,
     [token]
   );
-  return result.rows[0] || null;
+  return revealFile(result.rows[0] || null);
 }
 
 async function getSharesByFileId(fileId, ownerId) {
@@ -65,7 +78,7 @@ async function getSharesByFileId(fileId, ownerId) {
      ORDER BY created_at DESC`,
     [fileId, ownerId]
   );
-  return result.rows;
+  return result.rows.map(revealFile);
 }
 
 async function getAllSharesByOwner(ownerId) {
@@ -80,7 +93,7 @@ async function getAllSharesByOwner(ownerId) {
      ORDER BY s.created_at DESC`,
     [ownerId]
   );
-  return result.rows;
+  return result.rows.map(revealFile);
 }
 
 async function revokeShare(shareId, ownerId) {
@@ -100,7 +113,7 @@ async function getBatchShareItems(shareId) {
      ORDER BY i.id ASC`,
     [shareId]
   );
-  return result.rows;
+  return result.rows.map(revealFile);
 }
 
 async function incrementViews(shareId) {

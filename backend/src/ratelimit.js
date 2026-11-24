@@ -1,4 +1,11 @@
 const { loginAttemptRepository } = require("./db");
+const crypto = require("crypto");
+
+function protectIdentifier(identifier) {
+  const secret = process.env.SESSION_SECRET;
+  if (!secret) throw new Error("SESSION_SECRET not initialised");
+  return "rl:v1:" + crypto.createHmac("sha256", secret).update(String(identifier)).digest("hex");
+}
 
 function getClientIp(req) {
   if (req.headers && req.headers["x-forwarded-for"]) {
@@ -9,7 +16,8 @@ function getClientIp(req) {
 
 async function checkCooldown(identifier) {
   try {
-    const row = await loginAttemptRepository.findByIdentifier(identifier);
+    const protectedIdentifier = protectIdentifier(identifier);
+    const row = await loginAttemptRepository.findByIdentifier(protectedIdentifier);
 
     if (!row) {
       return { locked: false, failedCount: 0 };
@@ -31,7 +39,7 @@ async function checkCooldown(identifier) {
 
     const lastAttemptMs = new Date(row.last_failed_at).getTime();
     if (now - lastAttemptMs > 15 * 60 * 1000) {
-      await loginAttemptRepository.deleteByIdentifier(identifier);
+      await loginAttemptRepository.deleteByIdentifier(protectedIdentifier);
       return { locked: false, failedCount: 0 };
     }
 
@@ -45,7 +53,8 @@ async function checkCooldown(identifier) {
 async function recordFailedAttempt(identifier) {
   try {
     const now = new Date();
-    const row = await loginAttemptRepository.findByIdentifier(identifier);
+    const protectedIdentifier = protectIdentifier(identifier);
+    const row = await loginAttemptRepository.findByIdentifier(protectedIdentifier);
 
     let newCount = 1;
     if (row) {
@@ -67,7 +76,7 @@ async function recordFailedAttempt(identifier) {
     }
 
     await loginAttemptRepository.saveAttempt({
-      identifier,
+      identifier: protectIdentifier(identifier),
       failedCount: newCount,
       attemptedAt: now,
       lockedUntil,
@@ -86,7 +95,7 @@ async function recordFailedAttempt(identifier) {
 
 async function clearCooldown(identifier) {
   try {
-    await loginAttemptRepository.deleteByIdentifier(identifier);
+    await loginAttemptRepository.deleteByIdentifier(protectIdentifier(identifier));
   } catch (err) {
     console.error("Ratelimit clear error:", err);
   }

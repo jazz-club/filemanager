@@ -847,6 +847,95 @@ a:not(.navbar *):not(.btn) {
   border-bottom: none;
 }
 
+.upload-cancel-btn {
+  width: 22px;
+  height: 22px;
+  line-height: 1;
+  flex: 0 0 22px;
+  margin-left: 0.35rem;
+}
+
+.upload-tray-item-header {
+  gap: 0.45rem;
+  min-width: 0;
+  width: 100%;
+}
+
+.upload-tray-item-header .upload-item-name {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.upload-tray-item-header .upload-item-status {
+  flex: 0 1 auto;
+  min-width: 0;
+  white-space: nowrap;
+  text-align: right;
+}
+
+.audit-tray-entry {
+  transition: all 0.15s ease;
+  border-color: #d0d7de !important;
+}
+.audit-tray-entry:hover {
+  background-color: #f6f8fa !important;
+  border-color: #000000 !important;
+}
+.audit-tray-entry .audit-tray-details {
+  border-top-color: #e1e4e8 !important;
+  background-color: #fbfcfd !important;
+}
+.audit-tray-chevron {
+  transition: transform 0.15s ease;
+}
+
+.audit-summary-row:hover {
+  background-color: #f8f9fa !important;
+}
+.audit-summary-row.is-expanded {
+  background-color: #eef2f7 !important;
+}
+.audit-detail-box {
+  background: #ffffff;
+  border: 1px solid #d0d7de;
+  border-radius: 6px;
+  padding: 12px;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.audit-detail-row > td {
+  width: 100%;
+}
+
+.audit-filter-dropdown {
+  min-width: 155px;
+}
+
+.audit-filter-dropdown .toolbar-btn {
+  min-height: 34px;
+  width: 100%;
+  padding: 0.35rem 0.65rem;
+  border: 2px solid #000;
+  border-radius: 5px;
+  background: #fff;
+  box-shadow: 2px 2px 0 #000;
+  color: #000;
+  font-weight: 700;
+  text-align: left;
+  white-space: nowrap;
+}
+
+.audit-filter-dropdown .toolbar-btn:hover,
+.audit-filter-dropdown .toolbar-btn:focus {
+  background: #ffe4f1;
+  color: #000;
+}
+
+.audit-filter-dropdown .dropdown-menu {
+  min-width: 100%;
+}
+
 .continuous-toolbar {
   background-color: #ffffff !important;
   border: 2px solid var(--border-color, #000000) !important;
@@ -1052,6 +1141,27 @@ a:not(.navbar *):not(.btn) {
 
 .folder-row-item:hover {
   background-color: #fcf6fa;
+}
+
+.folder-row-item .list-file-toggle {
+  background-color: transparent !important;
+  color: inherit !important;
+}
+
+.folder-row-item .list-file-toggle::after {
+  display: none !important;
+}
+
+.folder-row-item:hover .list-file-toggle {
+  background-color: transparent !important;
+}
+
+.folder-row-item.file-row-selected {
+  background-color: #ffe6ef !important;
+}
+
+.folder-row-item.file-row-selected .list-file-toggle {
+  background-color: transparent !important;
 }
 
 .folder-row-item.dropdown-open {
@@ -1593,6 +1703,70 @@ a:not(.navbar *):not(.btn) {
   z-index: 1075 !important;
   box-shadow: 4px 4px 0 0 #000000 !important;
   border: 2px solid #000000 !important;
+  width: min(430px, calc(100vw - 24px)) !important;
+  max-width: calc(100vw - 24px) !important;
+  min-width: 0 !important;
+  box-sizing: border-box !important;
+  overflow: hidden !important;
+}
+
+#upload-tray .card-header,
+#notification-tray-messages,
+#upload-tray-items,
+#upload-tray-active-list,
+#upload-tray-audit-section,
+#upload-tray-audit-list {
+  min-width: 0 !important;
+  max-width: 100% !important;
+  box-sizing: border-box !important;
+}
+
+#notification-tray-messages,
+#upload-tray-items {
+  overflow-x: hidden !important;
+}
+
+#upload-tray .card-header {
+  gap: 0.45rem;
+  flex-wrap: wrap;
+}
+
+#upload-tray .card-header > div {
+  min-width: 0;
+  max-width: 100%;
+}
+
+#upload-tray .card-header > div:last-child {
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+#notification-tray-messages .d-flex.justify-content-between {
+  min-width: 0;
+  max-width: 100%;
+  gap: 0.3rem;
+}
+
+#notification-tray-messages .d-flex.justify-content-between > .fw-bold {
+  flex: 1 1 0;
+  min-width: 0;
+  overflow: hidden;
+}
+
+#upload-tray-audit-list .d-flex.align-items-center.justify-content-between {
+  min-width: 0;
+  max-width: 100%;
+  gap: 0.35rem;
+}
+
+#upload-tray-audit-list .d-flex.align-items-center.justify-content-between > .d-flex:first-child {
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+#upload-tray-audit-list .d-flex.align-items-center.justify-content-between > .d-flex:last-child {
+  max-width: 45%;
+  min-width: 0;
 }
 
 .grid-item-col,
@@ -1614,10 +1788,37 @@ a:not(.navbar *):not(.btn) {
 }
 
 #activity-empty-state,
-#tray-empty-placeholder,
 .whimsical-float {
   display: inline-block;
   animation: whimsicalFloat 2.2s ease-in-out infinite;
+}
+
+@keyframes trayHeartbeat {
+  0%,
+  44%,
+  100% {
+    transform: scale(1);
+  }
+  10% {
+    transform: scale(1.11);
+  }
+  20% {
+    transform: scale(1);
+  }
+  30% {
+    transform: scale(1.07);
+  }
+  40% {
+    transform: scale(1);
+  }
+}
+
+#tray-empty-placeholder .whimsical-float {
+  animation: trayHeartbeat 2.8s ease-in-out infinite;
+}
+
+#file-list-empty .whimsical-float {
+  animation: trayHeartbeat 2.8s ease-in-out infinite;
 }
 
 .btn:active,
@@ -2112,6 +2313,25 @@ body.has-selection-dock.has-audio-dock main#main-dropzone {
     transition: bottom 0.25s cubic-bezier(0.34, 1.56, 0.64, 1) !important;
   }
 
+  #upload-tray .card-header > div:last-child {
+    flex: 0 1 auto;
+  }
+
+  .folder-options-btn {
+    width: 30px !important;
+    min-width: 30px !important;
+    height: 30px !important;
+    min-height: 30px !important;
+    padding: 0 !important;
+    font-size: 1rem !important;
+    line-height: 1 !important;
+    gap: 0 !important;
+  }
+
+  .folder-options-label {
+    display: none !important;
+  }
+
   body.has-selection-dock #upload-tray {
     bottom: 140px !important;
   }
@@ -2567,8 +2787,10 @@ body.has-selection-dock.has-audio-dock main#main-dropzone {
 }
 .share-card-badges {
   display: flex;
+  flex-wrap: wrap;
   gap: 3px;
   flex-shrink: 0;
+  min-width: 0;
 }
 .share-card-title {
   font-size: 0.75rem;
@@ -2594,6 +2816,175 @@ body.has-selection-dock.has-audio-dock main#main-dropzone {
   font-weight: 700;
   font-family: var(--font-mono, monospace);
   color: #000;
+}
+
+.vault-pagination,
+.shares-pagination {
+  min-width: 0;
+}
+
+.vault-pagination-controls,
+.shares-pagination-controls {
+  min-width: 0;
+}
+
+.admin-filter-toolbar input[type="search"] {
+  flex: 1 1 180px;
+  min-width: 150px;
+}
+
+.admin-filter-dropdown {
+  min-width: 145px;
+}
+
+.admin-filter-dropdown .toolbar-btn {
+  min-height: 34px;
+  width: 100%;
+  padding: 0.35rem 0.65rem;
+  border: 2px solid #000;
+  border-radius: 5px;
+  background: #fff;
+  box-shadow: 2px 2px 0 #000;
+  color: #000;
+  font-weight: 700;
+  text-align: left;
+  white-space: nowrap;
+}
+
+.admin-pagination {
+  min-width: 0;
+}
+
+@media (max-width: 575.98px) {
+  .vault-pagination,
+  .shares-pagination {
+    align-items: stretch !important;
+  }
+
+  #vault-pagination-info,
+  #all-shares-pagination-info {
+    width: 100%;
+  }
+
+  .vault-pagination-controls,
+  .shares-pagination-controls {
+    width: 100%;
+    justify-content: space-between;
+    gap: 0.35rem !important;
+  }
+
+  .vault-pagination-controls > button,
+  .shares-pagination-controls > button {
+    flex: 1 1 auto;
+  }
+
+  .vault-pagination-controls > .dropdown,
+  .shares-pagination-controls > .dropdown {
+    flex: 0 0 auto;
+  }
+
+  .admin-filter-toolbar > input[type="search"] {
+    flex-basis: 100%;
+    width: 100%;
+  }
+
+  .admin-filter-dropdown {
+    flex: 1 1 135px;
+    min-width: 0;
+  }
+
+  .admin-pagination > div {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .share-card-top {
+    align-items: flex-start;
+  }
+
+  .share-card-badges {
+    flex: 1 1 100%;
+    width: 100%;
+  }
+
+  .share-card-badges .badge {
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+
+  #share-badge-visibility,
+  #share-badge-permission {
+    white-space: normal;
+    max-width: 100%;
+    overflow-wrap: anywhere;
+  }
+
+  .share-status-badges {
+    flex-wrap: wrap;
+  }
+
+  #all-shares-list .share-stats-table td:nth-child(2) {
+    white-space: normal !important;
+    overflow-wrap: anywhere;
+  }
+
+  #all-shares-list .share-stats-table td:nth-child(2) .badge {
+    display: inline-block;
+    max-width: 100%;
+    margin: 1px 0;
+    white-space: normal;
+    overflow-wrap: anywhere;
+    vertical-align: middle;
+  }
+
+  .upload-tray-item-header .upload-item-name {
+    max-width: none !important;
+  }
+
+  .upload-tray-item-header .upload-item-status {
+    font-size: 0.68rem !important;
+  }
+
+  .upload-tray-item-header .upload-cancel-btn {
+    min-height: 22px !important;
+  }
+}
+
+@media (min-width: 576px) and (max-width: 767.98px) {
+  .share-card-top {
+    align-items: flex-start;
+  }
+
+  .share-card-badges {
+    flex: 1 1 100%;
+    width: 100%;
+  }
+
+  .share-card-badges .badge,
+  #share-badge-visibility,
+  #share-badge-permission {
+    white-space: normal;
+    max-width: 100%;
+    overflow-wrap: anywhere;
+  }
+
+  .share-status-badges {
+    flex-wrap: wrap;
+  }
+
+  #all-shares-list .share-stats-table td:nth-child(2) {
+    white-space: normal !important;
+    overflow-wrap: anywhere;
+  }
+
+  #all-shares-list .share-stats-table td:nth-child(2) .badge {
+    display: inline-block;
+    max-width: 100%;
+    margin: 1px 0;
+    white-space: normal;
+    overflow-wrap: anywhere;
+    vertical-align: middle;
+  }
 }
 
 .share-stats-table {
@@ -3063,4 +3454,286 @@ body.has-selection-dock.has-audio-dock main#main-dropzone {
 .list-thumb-badges .meta-badge:nth-child(6),
 .list-thumb-badges [class*="meta-badge"]:nth-child(6) {
   animation-delay: 0.35s;
+}
+
+.share-stats-mobile-label {
+  display: none !important;
+}
+
+@media (max-width: 767.98px) {
+  #share-content,
+  #share-single-view,
+  #share-batch-view,
+  .share-status-bar {
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .share-status-bar {
+    flex-wrap: nowrap !important;
+    gap: 0.3rem !important;
+    padding: 0.45rem 0.55rem !important;
+  }
+
+  .share-status-bar > div:last-child {
+    flex: 0 1 auto;
+    min-width: 0;
+    gap: 0.25rem !important;
+    justify-content: flex-end;
+  }
+
+  #share-upload-date,
+  #share-expiry-countdown,
+  #share-stats-summary {
+    min-width: 0;
+    max-width: 84px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: clamp(0.45rem, 1.7vw, 0.58rem) !important;
+  }
+
+  .share-file-heading,
+  .share-collection-heading {
+    flex-wrap: nowrap !important;
+    gap: 0.35rem !important;
+    min-width: 0;
+  }
+
+  .share-file-heading > .d-flex:first-child,
+  .share-collection-heading > div:first-child {
+    flex: 1 1 0;
+    min-width: 0;
+    gap: 0.35rem !important;
+  }
+
+  #share-filename,
+  #batch-collection-title {
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: clamp(0.78rem, 3.2vw, 1rem) !important;
+  }
+
+  .share-page-actions {
+    flex: 0 1 auto;
+    flex-wrap: nowrap !important;
+    gap: 0.2rem !important;
+    min-width: 0;
+  }
+
+  .share-page-actions .btn {
+    flex: 0 1 auto;
+    min-width: 0;
+    min-height: 27px !important;
+    padding: 0.16rem 0.28rem !important;
+    gap: 0.18rem !important;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: clamp(0.46rem, 1.8vw, 0.62rem) !important;
+    line-height: 1.15;
+  }
+
+  .share-page-actions .btn img {
+    width: 12px !important;
+    height: 12px !important;
+    flex: 0 0 12px;
+  }
+
+  .share-page-actions .btn span,
+  #share-download-action-box,
+  #batch-download-action-box {
+    min-width: 0;
+  }
+
+  #share-preview-mount {
+    padding: 0.55rem !important;
+  }
+
+  .folder-options-btn {
+    width: 30px !important;
+    min-width: 30px !important;
+    height: 30px !important;
+    min-height: 30px !important;
+    padding: 0 !important;
+    font-size: 1rem !important;
+    line-height: 1 !important;
+  }
+
+  .folder-options-btn .folder-options-label {
+    display: none !important;
+  }
+
+  .share-card-row {
+    min-width: 0;
+    max-width: 100%;
+    overflow: hidden;
+    padding: 4px 5px;
+  }
+
+  .share-card-top {
+    align-items: center;
+    min-width: 0;
+    flex-wrap: nowrap !important;
+    gap: 3px;
+    overflow: hidden;
+  }
+
+  .share-card-badges {
+    flex: 0 1 auto;
+    flex-wrap: nowrap !important;
+    gap: 2px;
+    min-width: 0;
+    overflow: hidden;
+  }
+
+  .share-card-badges .badge {
+    flex: 0 1 auto;
+    min-width: 0;
+    padding: 0.12em 0.28em !important;
+    font-size: clamp(0.42rem, 1.8vw, 0.54rem) !important;
+    line-height: 1.2;
+    white-space: nowrap !important;
+  }
+
+  .share-card-title {
+    flex: 1 1 0;
+    min-width: 0;
+    font-size: clamp(0.52rem, 2.1vw, 0.64rem);
+  }
+
+  .share-card-expiry {
+    flex: 0 1 62px;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-size: clamp(0.44rem, 1.8vw, 0.55rem);
+  }
+
+  .share-card-top .revoke-share-btn {
+    flex: 0 0 auto;
+    min-height: 22px !important;
+    padding: 0.1rem 0.25rem !important;
+    font-size: 0.5rem !important;
+    line-height: 1.1;
+  }
+
+  .share-card-stats {
+    min-width: 0;
+    flex-wrap: nowrap;
+    gap: 0.45rem;
+    font-size: clamp(0.5rem, 1.9vw, 0.58rem);
+  }
+
+  .share-card-stats .share-stat-item {
+    min-width: 0;
+    white-space: nowrap;
+  }
+
+  .share-card-row .share-url-copy-box,
+  .share-card-row .share-url-copy-box .share-url-text {
+    min-width: 0;
+    max-width: 100%;
+    font-size: clamp(0.55rem, 2vw, 0.64rem);
+  }
+
+  .share-card-row .share-url-copy-box .share-url-text {
+    padding: 2px 5px;
+  }
+
+  .share-status-badges {
+    flex-wrap: nowrap !important;
+    min-width: 0;
+    gap: 0.25rem !important;
+  }
+
+  #share-badge-visibility,
+  #share-badge-permission {
+    flex: 0 1 auto;
+    min-width: 0;
+    max-width: 100%;
+    padding: 0.16em 0.35em !important;
+    font-size: clamp(0.5rem, 1.9vw, 0.6rem) !important;
+    white-space: nowrap !important;
+  }
+
+  #allSharesStatsModal .modal-dialog {
+    max-width: calc(100% - 8px) !important;
+    margin: 4px !important;
+  }
+
+  #allSharesStatsModal .modal-body {
+    padding: 0.4rem !important;
+    overflow-x: hidden;
+  }
+
+  #all-shares-list .share-stats-table {
+    width: 100%;
+    table-layout: fixed;
+    font-size: 0.48rem;
+  }
+
+  #all-shares-list .share-stats-table th,
+  #all-shares-list .share-stats-table td {
+    min-width: 0;
+    padding: 2px 1px !important;
+    font-size: clamp(0.39rem, 1.5vw, 0.48rem) !important;
+    line-height: 1.1;
+    white-space: nowrap !important;
+  }
+
+  #all-shares-list .share-stats-table td:nth-child(2) {
+    white-space: nowrap !important;
+    overflow: hidden !important;
+  }
+
+  #all-shares-list .share-stats-table th:nth-child(1) {
+    width: 19%;
+  }
+  #all-shares-list .share-stats-table th:nth-child(2) {
+    width: 24%;
+  }
+  #all-shares-list .share-stats-table th:nth-child(3) {
+    width: 7%;
+  }
+  #all-shares-list .share-stats-table th:nth-child(4) {
+    width: 10%;
+  }
+  #all-shares-list .share-stats-table th:nth-child(5) {
+    width: 7%;
+  }
+  #all-shares-list .share-stats-table th:nth-child(6) {
+    width: 13%;
+  }
+  #all-shares-list .share-stats-table th:nth-child(7) {
+    width: 20%;
+  }
+
+  .share-stats-desktop-label {
+    display: none !important;
+  }
+
+  .share-stats-mobile-label {
+    display: inline !important;
+  }
+
+  #all-shares-list .share-stats-table td:nth-child(2) .badge {
+    display: inline-block;
+    max-width: 100%;
+    margin: 0;
+    padding: 0.12em 0.2em !important;
+    font-size: clamp(0.36rem, 1.35vw, 0.44rem) !important;
+    white-space: nowrap !important;
+  }
+
+  #all-shares-list .share-stats-table td:nth-child(7) .btn {
+    min-height: 19px !important;
+    margin: 0 !important;
+    padding: 1px 2px !important;
+    font-size: clamp(0.39rem, 1.4vw, 0.46rem) !important;
+    line-height: 1 !important;
+    white-space: nowrap !important;
+  }
 }

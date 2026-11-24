@@ -1,4 +1,15 @@
 const { pool } = require("../connection");
+const { encryptText, decryptText, encryptJson, decryptJson } = require("../../crypto");
+
+function decryptFile(file) {
+  if (!file) return file;
+  if (file.original_name !== undefined) file.original_name = decryptText(file.original_name);
+  if (file.storage_key !== undefined) file.storage_key = decryptText(file.storage_key);
+  if (file.mime_type !== undefined) file.mime_type = decryptText(file.mime_type);
+  if (file.sha256 !== undefined) file.sha256 = decryptText(file.sha256);
+  if (file.metadata !== undefined) file.metadata = decryptJson(file.metadata);
+  return file;
+}
 
 async function getFilesByFolder(ownerId, folderId) {
   let query;
@@ -21,7 +32,7 @@ async function getFilesByFolder(ownerId, folderId) {
     params = [ownerId];
   }
   const result = await pool.query(query, params);
-  return result.rows;
+  return result.rows.map(decryptFile);
 }
 
 async function listVaultFiles(ownerId, folderId, includeAll = false) {
@@ -36,7 +47,7 @@ async function listVaultFiles(ownerId, folderId, includeAll = false) {
   }
   query += " ORDER BY uploaded_at DESC";
   const result = await pool.query(query, params);
-  return result.rows;
+  return result.rows.map(decryptFile);
 }
 
 async function getFileMetadata(fileId, ownerId) {
@@ -44,7 +55,7 @@ async function getFileMetadata(fileId, ownerId) {
     "SELECT id, original_name, size_bytes, mime_type, sha256, folder_id, uploaded_at, metadata, storage_key FROM files WHERE id = $1 AND owner_id = $2",
     [fileId, ownerId]
   );
-  return result.rows[0] || null;
+  return decryptFile(result.rows[0] || null);
 }
 
 async function getFileById(fileId, ownerId) {
@@ -52,7 +63,7 @@ async function getFileById(fileId, ownerId) {
     fileId,
     ownerId,
   ]);
-  return result.rows[0] || null;
+  return decryptFile(result.rows[0] || null);
 }
 
 async function getFileByTokenOrId(tokenOrId, ownerId) {
@@ -69,7 +80,7 @@ async function getFileByTokenOrId(tokenOrId, ownerId) {
       ownerId,
     ]);
   }
-  return result.rows[0] || null;
+  return decryptFile(result.rows[0] || null);
 }
 
 async function insertFile({
@@ -90,21 +101,21 @@ async function insertFile({
     [
       ownerId,
       folderId,
-      originalName,
-      storageKey,
+      encryptText(originalName),
+      encryptText(storageKey),
       sizeBytes,
-      mimeType,
-      sha256,
+      encryptText(mimeType),
+      sha256 === null || sha256 === undefined ? null : encryptText(sha256),
       downloadToken,
-      JSON.stringify(metadata),
+      JSON.stringify(encryptJson(metadata)),
     ]
   );
-  return result.rows[0];
+  return decryptFile(result.rows[0]);
 }
 
 async function updateFileMetadata(fileId, ownerId, metadata) {
   await pool.query("UPDATE files SET metadata = $1 WHERE id = $2 AND owner_id = $3", [
-    JSON.stringify(metadata),
+    JSON.stringify(encryptJson(metadata)),
     fileId,
     ownerId,
   ]);
@@ -113,9 +124,9 @@ async function updateFileMetadata(fileId, ownerId, metadata) {
 async function renameFile(fileId, ownerId, newName) {
   const result = await pool.query(
     "UPDATE files SET original_name = $1 WHERE id = $2 AND owner_id = $3 RETURNING id, original_name, folder_id, size_bytes, mime_type, uploaded_at",
-    [newName, fileId, ownerId]
+    [encryptText(newName), fileId, ownerId]
   );
-  return result.rows[0] || null;
+  return decryptFile(result.rows[0] || null);
 }
 
 async function moveFilesBatch(fileIds, ownerId, destFolderId) {
@@ -131,7 +142,7 @@ async function moveSingleFile(fileId, ownerId, destFolderId) {
     "UPDATE files SET folder_id = $1 WHERE id = $2 AND owner_id = $3 RETURNING id, original_name, folder_id",
     [destFolderId, fileId, ownerId]
   );
-  return result.rows[0] || null;
+  return decryptFile(result.rows[0] || null);
 }
 
 async function deleteFilesBatch(fileIds, ownerId) {
@@ -140,7 +151,7 @@ async function deleteFilesBatch(fileIds, ownerId) {
     [fileIds, ownerId]
   );
   await pool.query("DELETE FROM files WHERE id = ANY($1) AND owner_id = $2", [fileIds, ownerId]);
-  return filesQ.rows.map((f) => f.storage_key);
+  return filesQ.rows.map((f) => decryptText(f.storage_key));
 }
 
 async function deleteSingleFile(fileId, ownerId) {
@@ -150,19 +161,19 @@ async function deleteSingleFile(fileId, ownerId) {
   ]);
   if (result.rows.length === 0) return null;
   await pool.query("DELETE FROM files WHERE id = $1 AND owner_id = $2", [fileId, ownerId]);
-  return result.rows[0].storage_key;
+  return decryptText(result.rows[0].storage_key);
 }
 
 async function getStorageStats(ownerId) {
   const result = await pool.query("SELECT mime_type, size_bytes FROM files WHERE owner_id = $1", [
     ownerId,
   ]);
-  return result.rows;
+  return result.rows.map((row) => ({ ...row, mime_type: decryptText(row.mime_type) }));
 }
 
 async function getStorageKeysByOwner(ownerId) {
   const result = await pool.query("SELECT storage_key FROM files WHERE owner_id = $1", [ownerId]);
-  return result.rows.map((row) => row.storage_key);
+  return result.rows.map((row) => decryptText(row.storage_key));
 }
 
 async function getGlobalFileStats() {

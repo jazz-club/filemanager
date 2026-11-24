@@ -38,11 +38,13 @@ function startZipDownloadTask(url, zipName, displayTitle, fetchOptions) {
   row.className = "upload-tray-item mb-2 p-2 border border-dark rounded bg-white shadow-sm";
   row.innerHTML =
     '<div class="d-flex justify-content-between align-items-center mb-1 small">' +
-    '<span class="fw-bold text-truncate" style="max-width: 190px;" title="' +
+    '<span class="fw-bold text-truncate d-flex align-items-center gap-1" style="max-width: 190px;" title="' +
     escapeHtml(displayTitle) +
     '">' +
-    "📦 " +
+    '<img src="/src/assets/icons/lib/SVG/regular/save.svg" width="14" height="14" alt="" style="object-fit: contain;" />' +
+    "<span>" +
     escapeHtml(displayTitle) +
+    "</span>" +
     "</span>" +
     '<span class="text-muted zip-status font-monospace" style="font-size: 0.72rem;">Preparing...</span>' +
     "</div>" +
@@ -50,7 +52,9 @@ function startZipDownloadTask(url, zipName, displayTitle, fetchOptions) {
     '<div class="progress-bar progress-bar-striped progress-bar-animated bg-primary" role="progressbar" style="width: 15%; transition: width 0.2s ease;"></div>' +
     "</div>";
 
-  var trayItems = document.getElementById("upload-tray-items");
+  var trayItems =
+    document.getElementById("upload-tray-active-list") ||
+    document.getElementById("upload-tray-items");
   if (trayItems) trayItems.prepend(row);
   updateTrayEmptyState();
 
@@ -115,7 +119,8 @@ function startZipDownloadTask(url, zipName, displayTitle, fetchOptions) {
             var elapsed = (performance.now() - startedAt) / 1000;
             if (contentLength >= 5 * 1024 * 1024 && elapsed >= 0.5 && receivedBytes > 0) {
               var speed = receivedBytes / elapsed;
-              status += " · " + formatTransferDuration((contentLength - receivedBytes) / speed) + " left";
+              status +=
+                " · " + formatTransferDuration((contentLength - receivedBytes) / speed) + " left";
             }
             statusEl.textContent = status;
           } else {
@@ -160,7 +165,15 @@ function downloadSelectionAsZip(fileIds, folderIds) {
   });
 }
 
-function loadVault() {
+function loadVault(options) {
+  options = options || {};
+  if (Array.isArray(options.revealFileIds) && options.revealFileIds.length) {
+    var pendingRevealIds = window.vaultRevealUploadedFileIds || [];
+    window.vaultRevealUploadedFileIds = Array.from(
+      new Set(pendingRevealIds.concat(options.revealFileIds))
+    );
+  }
+  if (typeof vaultCurrentPage !== "undefined") vaultCurrentPage = 1;
   selectedFileIds.clear();
   selectedFolderIds.clear();
   updateBatchBar();

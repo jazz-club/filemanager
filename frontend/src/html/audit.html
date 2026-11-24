@@ -1,0 +1,443 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>PinkBox &lt;3 | Audit Log</title>
+    <link rel="icon" type="image/png" href="/src/assets/icons/heart.png" />
+    <link rel="apple-touch-icon" href="/src/assets/icons/heart.png" />
+    <meta name="theme-color" content="#FF033e" />
+    <meta name="description" content="PinkBox System Audit Log" />
+    <link rel="stylesheet" href="/src/css/bootstrap.min.css" />
+    <link rel="stylesheet" href="/src/css/style.css" />
+    <style>
+      .audit-stat-card {
+        background: #ffffff;
+        border: 2px solid #000000;
+        box-shadow: 3px 3px 0 0 #000000;
+        border-radius: 6px;
+        padding: 0.75rem 1rem;
+      }
+
+      .audit-row-expanded {
+        background-color: #fff8fc !important;
+      }
+
+      .audit-detail-box {
+        background: #ffffff;
+        border: 2px dashed #000000;
+        border-radius: 6px;
+        padding: 1rem;
+        width: 100%;
+        box-sizing: border-box;
+      }
+
+      .audit-detail-pill {
+        font-size: 0.72rem;
+        padding: 0.2rem 0.5rem;
+        border-radius: 4px;
+        border: 1px solid #000;
+        background: #fff;
+      }
+    </style>
+  </head>
+
+  <body class="bg-light">
+    <nav
+      class="navbar navbar-expand navbar-light bg-white mb-3 shadow-sm border-bottom border-dark"
+    >
+      <div class="container-xl">
+        <div class="d-flex align-items-center gap-2">
+          <a class="navbar-brand fw-bold d-flex align-items-center gap-2" href="/vault">
+            <span>PinkBox</span>
+            <span
+              class="brand-heart-emoji"
+              style="color: #ff3385; font-size: 1.15rem; line-height: 1; user-select: none"
+              >❤︎</span
+            >
+          </a>
+          <span class="badge bg-primary font-monospace" style="font-size: 0.75rem">AUDIT LOG</span>
+        </div>
+
+        <div class="d-flex align-items-center gap-2">
+          <span class="navbar-text small d-none d-sm-inline ms-2">
+            Logged in as <b id="audit-whoami">...</b>
+          </span>
+          <a
+            href="/vault"
+            class="btn btn-sm btn-white border border-dark fw-bold d-flex align-items-center gap-1 shadow-sm"
+          >
+            <img
+              src="/src/assets/icons/lib/SVG/regular/arrow-left.svg"
+              width="14"
+              height="14"
+              alt=""
+              style="object-fit: contain"
+            />
+            <span>Back to Vault</span>
+          </a>
+        </div>
+      </div>
+    </nav>
+
+    <div class="container-xl py-2 pb-5">
+      <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
+        <div>
+          <h3 class="fw-bold mb-0 d-flex align-items-center gap-2">
+            <img
+              src="/src/assets/icons/lib/SVG/regular/bullet-list.svg"
+              width="24"
+              height="24"
+              alt=""
+              style="object-fit: contain"
+            />
+            <span>Activity</span>
+          </h3>
+        </div>
+        <div class="d-flex align-items-center gap-2">
+          <button
+            type="button"
+            id="audit-refresh-btn"
+            class="btn btn-sm btn-white border border-dark fw-bold shadow-sm"
+            title="Refresh logs"
+          >
+            ↻ Refresh
+          </button>
+          <div class="dropdown">
+            <button
+              type="button"
+              class="btn btn-sm btn-white border border-dark fw-bold shadow-sm dropdown-toggle"
+              data-bs-toggle="dropdown"
+            >
+              Export
+            </button>
+            <ul class="dropdown-menu dropdown-menu-end">
+              <li>
+                <button class="dropdown-item" type="button" id="audit-export-csv-btn">CSV</button>
+              </li>
+              <li>
+                <button class="dropdown-item" type="button" id="audit-export-json-btn">JSON</button>
+              </li>
+            </ul>
+          </div>
+          <button
+            type="button"
+            id="audit-clear-btn"
+            class="btn btn-sm btn-outline-danger border border-dark fw-bold shadow-sm"
+            title="Clear all audit history"
+          >
+            Clear History
+          </button>
+        </div>
+      </div>
+
+      <div class="row g-2 mb-3">
+        <div class="col-6 col-md-4 col-lg">
+          <div class="audit-stat-card">
+            <div class="text-muted small">Total Events</div>
+            <div class="fs-4 fw-bold font-monospace" id="stat-total">0</div>
+          </div>
+        </div>
+        <div class="col-6 col-md-4 col-lg">
+          <div class="audit-stat-card">
+            <div class="text-muted small">Uploads</div>
+            <div class="fs-4 fw-bold font-monospace text-primary" id="stat-uploads">0</div>
+          </div>
+        </div>
+        <div class="col-6 col-md-4 col-lg">
+          <div class="audit-stat-card">
+            <div class="text-muted small">Downloads</div>
+            <div class="fs-4 fw-bold font-monospace text-success" id="stat-downloads">0</div>
+          </div>
+        </div>
+        <div class="col-6 col-md-4 col-lg">
+          <div class="audit-stat-card">
+            <div class="text-muted small">Shares</div>
+            <div class="fs-4 fw-bold font-monospace text-info" id="stat-shares">0</div>
+          </div>
+        </div>
+        <div class="col-6 col-md-4 col-lg">
+          <div class="audit-stat-card">
+            <div class="text-muted small">Deletions</div>
+            <div class="fs-4 fw-bold font-monospace text-danger" id="stat-deletes">0</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card border-2 border-dark shadow-sm mb-3">
+        <div class="card-body p-2 d-flex flex-wrap align-items-center gap-2">
+          <div class="flex-grow-1" style="min-width: 220px">
+            <input
+              type="text"
+              id="audit-search-input"
+              class="form-control form-control-sm border-dark"
+              placeholder="Search actions, files, events..."
+            />
+          </div>
+          <div class="dropdown audit-filter-dropdown">
+            <button
+              type="button"
+              class="toolbar-btn dropdown-toggle"
+              id="audit-category-dropdown"
+              data-bs-toggle="dropdown"
+              aria-expanded="false"
+            >
+              All Categories
+            </button>
+            <ul
+              class="dropdown-menu shadow-sm border-dark"
+              aria-labelledby="audit-category-dropdown"
+            >
+              <li>
+                <button
+                  class="dropdown-item py-1"
+                  type="button"
+                  data-audit-select="audit-category-filter"
+                  data-value="all"
+                >
+                  All Categories
+                </button>
+              </li>
+              <li>
+                <button
+                  class="dropdown-item py-1"
+                  type="button"
+                  data-audit-select="audit-category-filter"
+                  data-value="uploads"
+                >
+                  Uploads
+                </button>
+              </li>
+              <li>
+                <button
+                  class="dropdown-item py-1"
+                  type="button"
+                  data-audit-select="audit-category-filter"
+                  data-value="downloads"
+                >
+                  Downloads
+                </button>
+              </li>
+              <li>
+                <button
+                  class="dropdown-item py-1"
+                  type="button"
+                  data-audit-select="audit-category-filter"
+                  data-value="shares"
+                >
+                  Shares
+                </button>
+              </li>
+              <li>
+                <button
+                  class="dropdown-item py-1"
+                  type="button"
+                  data-audit-select="audit-category-filter"
+                  data-value="deletes"
+                >
+                  Deletions
+                </button>
+              </li>
+              <li>
+                <button
+                  class="dropdown-item py-1"
+                  type="button"
+                  data-audit-select="audit-category-filter"
+                  data-value="folders"
+                >
+                  Folders
+                </button>
+              </li>
+              <li>
+                <button
+                  class="dropdown-item py-1"
+                  type="button"
+                  data-audit-select="audit-category-filter"
+                  data-value="auth"
+                >
+                  Authentication
+                </button>
+              </li>
+            </ul>
+            <select id="audit-category-filter" class="d-none">
+              <option value="all">All Categories</option>
+              <option value="uploads">Uploads</option>
+              <option value="downloads">Downloads</option>
+              <option value="shares">Shares</option>
+              <option value="deletes">Deletions</option>
+              <option value="folders">Folders</option>
+              <option value="auth">Authentication</option>
+            </select>
+          </div>
+          <div class="dropdown audit-filter-dropdown">
+            <button
+              type="button"
+              class="toolbar-btn dropdown-toggle"
+              id="audit-outcome-dropdown"
+              data-bs-toggle="dropdown"
+              aria-expanded="false"
+            >
+              All Outcomes
+            </button>
+            <ul
+              class="dropdown-menu shadow-sm border-dark"
+              aria-labelledby="audit-outcome-dropdown"
+            >
+              <li>
+                <button
+                  class="dropdown-item py-1"
+                  type="button"
+                  data-audit-select="audit-outcome-filter"
+                  data-value="all"
+                >
+                  All Outcomes
+                </button>
+              </li>
+              <li>
+                <button
+                  class="dropdown-item py-1"
+                  type="button"
+                  data-audit-select="audit-outcome-filter"
+                  data-value="SUCCESS"
+                >
+                  Success Only
+                </button>
+              </li>
+              <li>
+                <button
+                  class="dropdown-item py-1"
+                  type="button"
+                  data-audit-select="audit-outcome-filter"
+                  data-value="FAILURE"
+                >
+                  Failures &amp; Errors
+                </button>
+              </li>
+            </ul>
+            <select id="audit-outcome-filter" class="d-none">
+              <option value="all">All Outcomes</option>
+              <option value="SUCCESS">Success Only</option>
+              <option value="FAILURE">Failures &amp; Errors</option>
+            </select>
+          </div>
+          <div class="dropdown audit-filter-dropdown">
+            <button
+              type="button"
+              class="toolbar-btn dropdown-toggle"
+              id="audit-limit-dropdown"
+              data-bs-toggle="dropdown"
+              aria-expanded="false"
+            >
+              50 per page
+            </button>
+            <ul
+              class="dropdown-menu dropdown-menu-end shadow-sm border-dark"
+              aria-labelledby="audit-limit-dropdown"
+            >
+              <li>
+                <button
+                  class="dropdown-item py-1"
+                  type="button"
+                  data-audit-select="audit-limit-select"
+                  data-value="25"
+                >
+                  25 per page
+                </button>
+              </li>
+              <li>
+                <button
+                  class="dropdown-item py-1"
+                  type="button"
+                  data-audit-select="audit-limit-select"
+                  data-value="50"
+                >
+                  50 per page
+                </button>
+              </li>
+              <li>
+                <button
+                  class="dropdown-item py-1"
+                  type="button"
+                  data-audit-select="audit-limit-select"
+                  data-value="100"
+                >
+                  100 per page
+                </button>
+              </li>
+              <li>
+                <button
+                  class="dropdown-item py-1"
+                  type="button"
+                  data-audit-select="audit-limit-select"
+                  data-value="200"
+                >
+                  200 per page
+                </button>
+              </li>
+            </ul>
+            <select id="audit-limit-select" class="d-none">
+              <option value="25">25 per page</option>
+              <option value="50" selected>50 per page</option>
+              <option value="100">100 per page</option>
+              <option value="200">200 per page</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <div class="card border-2 border-dark shadow-sm overflow-hidden mb-3">
+        <div class="table-responsive">
+          <table class="table table-hover align-middle mb-0" id="audit-table">
+            <thead class="table-light border-bottom border-dark">
+              <tr>
+                <th style="width: 40px"></th>
+                <th style="width: 180px">Timestamp</th>
+                <th style="width: 160px">Event</th>
+                <th>Action &amp; Target</th>
+                <th style="width: 56px" class="text-end"></th>
+              </tr>
+            </thead>
+            <tbody id="audit-table-body">
+              <tr>
+                <td colspan="5" class="text-center py-5 text-muted">
+                  <div class="spinner-border spinner-border-sm me-2" role="status"></div>
+                  Loading audit logs...
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+        <div class="small text-muted" id="audit-pagination-info">Showing 0-0 of 0 entries</div>
+        <div class="d-flex align-items-center gap-2">
+          <button
+            type="button"
+            id="audit-prev-btn"
+            class="btn btn-sm btn-white border border-dark fw-bold"
+            disabled
+          >
+            ← Previous
+          </button>
+          <span class="small font-monospace" id="audit-page-indicator">Page 1</span>
+          <button
+            type="button"
+            id="audit-next-btn"
+            class="btn btn-sm btn-white border border-dark fw-bold"
+            disabled
+          >
+            Next →
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <script src="/src/js/bootstrap.bundle.min.js"></script>
+    <script src="/src/js/common.js"></script>
+    <script src="/src/js/utils/dom.js"></script>
+    <script src="/src/js/utils/formatters.js"></script>
+    <script src="/src/js/utils/icons.js"></script>
+    <script src="/src/js/audit.js"></script>
+  </body>
+</html>

@@ -22,7 +22,9 @@
 
     titleEl.textContent = "Remove from Share";
     bodyEl.textContent =
-      'Remove "' + fileName + '" from this share?\n(This only modifies the share not the original copy)';
+      'Remove "' +
+      fileName +
+      '" from this share?\n(This only modifies the share not the original copy)';
     bodyEl.style.whiteSpace = "pre-line";
     confirmBtn.textContent = "Remove";
     confirmBtn.className = "btn btn-sm btn-danger fw-bold";
@@ -43,25 +45,25 @@
     modal.show();
   }
 
-function hasReachedDownloadLimit(share) {
-  return (
-    !share.isOwner &&
-    Number(share.maxDownloads) > 0 &&
-    Number(share.downloadsCount) >= Number(share.maxDownloads)
-  );
-}
+  function hasReachedDownloadLimit(share) {
+    return (
+      !share.isOwner &&
+      Number(share.maxDownloads) > 0 &&
+      Number(share.downloadsCount) >= Number(share.maxDownloads)
+    );
+  }
 
-function disableDownloadLink(link) {
-  if (!link) return;
-  link.href = "#";
-  link.classList.add("disabled");
-  link.setAttribute("aria-disabled", "true");
-  link.title = "This share link has reached its download limit";
-  link.onclick = function (event) {
-    event.preventDefault();
-    showShareError("This share link has reached its download limit");
-  };
-}
+  function disableDownloadLink(link) {
+    if (!link) return;
+    link.href = "#";
+    link.classList.add("disabled");
+    link.setAttribute("aria-disabled", "true");
+    link.title = "This share link has reached its download limit";
+    link.onclick = function (event) {
+      event.preventDefault();
+      showShareError("This share link has reached its download limit");
+    };
+  }
 
   function getShareToken() {
     var path = window.location.pathname;
@@ -129,7 +131,8 @@ function disableDownloadLink(link) {
         } else if (res.status === 410) {
           errorTitle.textContent = "Share Link Unavailable";
           errorMsg.textContent =
-            (res.data && res.data.error) || "This share link has expired or reached its view limit.";
+            (res.data && res.data.error) ||
+            "This share link has expired or reached its view limit.";
         } else {
           errorTitle.textContent = "Link Unavailable";
           errorMsg.textContent =
@@ -140,6 +143,7 @@ function disableDownloadLink(link) {
       }
 
       var share = res.data;
+      updateShareOpenGraph(share);
       contentEl.classList.remove("d-none");
 
       var visBadge = document.getElementById("share-badge-visibility");
@@ -189,7 +193,7 @@ function disableDownloadLink(link) {
           var exp = new Date(share.expiresAt).getTime();
           var diff = exp - now;
           if (diff <= 0) {
-            countdownEl.textContent = "⏱ Expired";
+            countdownEl.textContent = "Expired";
             countdownEl.style.color = "#f56565";
             return;
           }
@@ -203,7 +207,7 @@ function disableDownloadLink(link) {
           if (hrs > 0 || days > 0) parts.push(hrs + "h");
           if (mins > 0 || hrs > 0 || days > 0) parts.push(mins + "m");
           parts.push(secs + "s");
-          countdownEl.textContent = "⏱ Expires in " + parts.join(" ");
+          countdownEl.textContent = "Expires in " + parts.join(" ");
           countdownEl.style.color = diff < 3600000 ? "#f56565" : "";
           setTimeout(updateCountdown, 1000);
         }
@@ -370,6 +374,38 @@ function disableDownloadLink(link) {
     }
   }
 
+  function updateShareOpenGraph(share) {
+    var title = share.title || share.fileName || share.originalName || "Shared files";
+    var description = share.isBatch
+      ? "Shared collection · " +
+        (share.fileCount || (share.files && share.files.length) || 0) +
+        " items"
+      : [share.mimeType || "Shared file", share.sizeBytes ? formatBytes(share.sizeBytes) : ""]
+          .filter(Boolean)
+          .join(" · ");
+    var image =
+      share.coverUrl ||
+      share.previewUrl ||
+      (share.shareToken && !share.isBatch
+        ? "/api/shares/" + encodeURIComponent(share.shareToken) + "/cover"
+        : "");
+    document.title = title + " | PinkBox";
+    function setMeta(property, content) {
+      var el = document.querySelector('meta[property="' + property + '"]');
+      if (!el) {
+        el = document.createElement("meta");
+        el.setAttribute("property", property);
+        document.head.appendChild(el);
+      }
+      el.content = content;
+    }
+    setMeta("og:title", title);
+    setMeta("og:description", description || "A file has been shared with you on PinkBox.");
+    setMeta("og:type", "website");
+    setMeta("og:url", window.location.href);
+    if (image) setMeta("og:image", new URL(image, window.location.origin).href);
+  }
+
   function saveSingleToVault(shareToken) {
     var btn = document.getElementById("share-save-vault-btn");
     if (!btn) return;
@@ -506,7 +542,17 @@ function disableDownloadLink(link) {
             saveBatchToVault(shareToken);
           };
         }
-        if (batchLoggedInBanner) batchLoggedInBanner.classList.remove("d-none");
+        if (batchLoggedInBanner) {
+          batchLoggedInBanner.classList.remove("d-none");
+          var loggedInMsgEl = document.getElementById("batch-logged-in-msg");
+          if (loggedInMsgEl) {
+            var uName = batch.userName || "user";
+            loggedInMsgEl.innerHTML =
+              "Logged in as <strong>" +
+              escapeHtml(uName) +
+              "</strong>. Files can be saved to your vault using the + button or clicking add all to vault.";
+          }
+        }
         if (new URLSearchParams(window.location.search).get("action") === "add_to_vault") {
           saveBatchToVault(shareToken);
         }
@@ -531,124 +577,161 @@ function disableDownloadLink(link) {
       }
     }
 
+    var listContainer = document.getElementById("batch-files-list");
     var tbody = document.getElementById("batch-files-tbody");
-    tbody.innerHTML = "";
+    if (listContainer) listContainer.innerHTML = "";
+    if (tbody) tbody.innerHTML = "";
+
+    if (!batch.files || batch.files.length === 0) {
+      if (listContainer) {
+        listContainer.innerHTML =
+          '<div class="text-center text-muted py-4 small">This collection is empty.</div>';
+      }
+    }
 
     (batch.files || []).forEach(function (f) {
-      var tr = document.createElement("tr");
+      if (listContainer) {
+        var item = document.createElement("div");
+        item.className = "border-bottom p-1 p-sm-2 list-file-item";
 
-      var iconTd = document.createElement("td");
-      iconTd.className = "text-center";
-      iconTd.innerHTML =
-        '<img src="' +
-        getFileIconUrl(f.mimeType, f.fileName) +
-        '" width="22" height="22" style="image-rendering: pixelated; object-fit: contain;" alt="" />';
+        var header = document.createElement("div");
+        header.className =
+          "accordion-header list-file-header d-flex align-items-center justify-content-between";
 
-      var nameTd = document.createElement("td");
-      nameTd.className = "fw-bold text-truncate";
-      nameTd.style.maxWidth = "280px";
-      nameTd.textContent = f.fileName;
-      nameTd.title = f.fileName;
+        var btn = document.createElement("div");
+        btn.className =
+          "py-2 px-2 list-file-toggle d-flex align-items-center gap-2 flex-grow-1 text-truncate min-w-0";
+        btn.style.cursor = "pointer";
+        btn.title = "Click to preview " + f.fileName;
+        btn.onclick = function () {
+          openBatchPreview(f, shareToken, batch);
+        };
 
-      var sizeTd = document.createElement("td");
-      sizeTd.className = "text-muted font-monospace small d-none d-sm-table-cell";
-      sizeTd.textContent = formatBytes(f.sizeBytes);
+        var fileGlyph =
+          '<img src="' +
+          getFileIconUrl(f.mimeType, f.fileName) +
+          '" class="file-icon-img" alt="" width="20" height="20" style="object-fit: contain; vertical-align: middle; flex-shrink: 0;" />';
 
-      var actionTd = document.createElement("td");
-      actionTd.className = "text-end pe-3";
+        btn.innerHTML =
+          '<span class="me-1 d-inline-flex align-items-center flex-shrink-0">' +
+          fileGlyph +
+          "</span>" +
+          '<span class="fw-bold text-truncate" title="' +
+          escapeHtml(f.fileName) +
+          '">' +
+          escapeHtml(f.fileName) +
+          "</span>" +
+          '<span class="text-muted font-monospace small d-none d-md-inline ms-auto me-2 flex-shrink-0">' +
+          formatBytes(f.sizeBytes) +
+          "</span>";
 
-      var actionsDiv = document.createElement("div");
-      actionsDiv.className = "d-inline-flex gap-1 align-items-center";
+        var rowActions = document.createElement("div");
+        rowActions.className =
+          "list-row-actions d-flex align-items-center gap-1 gap-sm-2 flex-shrink-0 pe-1";
 
-      var prevBtn = document.createElement("button");
-      prevBtn.type = "button";
-      prevBtn.className = "btn btn-sm btn-outline-dark fw-bold py-0 px-2";
-      prevBtn.style.fontSize = "0.78rem";
-      prevBtn.textContent = "Preview";
-      prevBtn.onclick = function () {
-        openBatchPreview(f, shareToken, batch);
-      };
-      actionsDiv.appendChild(prevBtn);
+        var prevBtn = document.createElement("button");
+        prevBtn.type = "button";
+        prevBtn.className =
+          "btn btn-sm py-0 px-2 list-header-preview-btn d-inline-flex align-items-center justify-content-center";
+        prevBtn.style.cssText = "height: 26px; width: 28px;";
+        prevBtn.title = "Preview file";
+        prevBtn.innerHTML =
+          '<img src="/src/assets/icons/lib/SVG/regular/eye.svg" width="14" height="14" style="object-fit: contain;" alt="Preview" />';
+        prevBtn.onclick = function (e) {
+          e.preventDefault();
+          e.stopPropagation();
+          openBatchPreview(f, shareToken, batch);
+        };
+        rowActions.appendChild(prevBtn);
 
-      if (batch.userLoggedIn && (batch.allowDownload || !batch.isPublic)) {
-        var addRowBtn = document.createElement("button");
-        addRowBtn.type = "button";
-        addRowBtn.className = "btn btn-sm btn-white border border-dark fw-bold py-0 px-2";
-        addRowBtn.style.fontSize = "0.78rem";
-        addRowBtn.textContent = "+ Vault";
-        addRowBtn.title = "Add this item to your vault";
-        addRowBtn.onclick = function () {
-          addRowBtn.disabled = true;
-          addRowBtn.textContent = "Adding...";
-          api("/shares/" + shareToken + "/files/" + f.id + "/save-to-vault", { method: "POST" })
-            .then(function (r) {
-              return r.json();
-            })
-            .then(function (d) {
-              if (d.error) {
+        if (batch.allowDownload) {
+          var dlBtn = document.createElement("a");
+          dlBtn.href = "/api/shares/" + shareToken + "/files/" + f.id + "/download";
+          dlBtn.className =
+            "btn btn-sm btn-success py-0 px-2 list-header-dl-btn d-inline-flex align-items-center justify-content-center";
+          dlBtn.style.cssText = "height: 26px; width: 28px;";
+          dlBtn.title = "Download file";
+          dlBtn.innerHTML =
+            '<img src="/src/assets/icons/lib/SVG/regular/download.svg" width="14" height="14" style="object-fit: contain;" alt="Download" />';
+          if (hasReachedDownloadLimit(batch)) disableDownloadLink(dlBtn);
+          rowActions.appendChild(dlBtn);
+        }
+
+        if (batch.userLoggedIn && (batch.allowDownload || !batch.isPublic)) {
+          var addRowBtn = document.createElement("button");
+          addRowBtn.type = "button";
+          addRowBtn.className =
+            "btn btn-sm btn-primary py-0 px-2 list-header-vault-btn d-inline-flex align-items-center justify-content-center";
+          addRowBtn.style.cssText = "height: 26px; width: 28px;";
+          addRowBtn.title = "Add to Vault (+)";
+          addRowBtn.innerHTML =
+            '<img src="/src/assets/icons/lib/SVG/regular/plus.svg" width="14" height="14" style="object-fit: contain;" alt="+" />';
+          addRowBtn.onclick = function (e) {
+            e.preventDefault();
+            e.stopPropagation();
+            addRowBtn.disabled = true;
+            api("/shares/" + shareToken + "/files/" + f.id + "/save-to-vault", { method: "POST" })
+              .then(function (r) {
+                return r.json();
+              })
+              .then(function (d) {
+                if (d.error) {
+                  addRowBtn.disabled = false;
+                  showShareError(d.error);
+                } else {
+                  addRowBtn.className =
+                    "btn btn-sm btn-white border border-dark py-0 px-2 d-inline-flex align-items-center justify-content-center";
+                  addRowBtn.innerHTML =
+                    '<img src="/src/assets/icons/lib/SVG/regular/check.svg" width="14" height="14" style="object-fit: contain;" alt="Added" />';
+                  addRowBtn.title = "Added to Vault";
+                }
+              })
+              .catch(function () {
                 addRowBtn.disabled = false;
-                addRowBtn.textContent = "+ Vault";
-                showShareError(d.error);
-              } else {
-                addRowBtn.textContent = "Added";
-                addRowBtn.classList.add("text-success");
+              });
+          };
+          rowActions.appendChild(addRowBtn);
+        }
+
+        if (batch.accessType === "edit") {
+          var removeBtn = document.createElement("button");
+          removeBtn.type = "button";
+          removeBtn.className =
+            "btn btn-sm btn-danger py-0 px-2 d-inline-flex align-items-center justify-content-center";
+          removeBtn.style.cssText = "height: 26px; width: 28px;";
+          removeBtn.title = "Remove from share";
+          removeBtn.innerHTML = "✕";
+          removeBtn.onclick = function (e) {
+            e.preventDefault();
+            e.stopPropagation();
+            removeSharedFile(shareToken, f.id, f.fileName, function () {
+              item.remove();
+              batch.files = batch.files.filter(function (item) {
+                return item.id !== f.id;
+              });
+              batch.fileCount = batch.files.length;
+              batch.totalBytes = batch.files.reduce(function (sum, item) {
+                return sum + (Number(item.sizeBytes) || 0);
+              }, 0);
+              document.getElementById("batch-collection-subtitle").textContent =
+                batch.fileCount +
+                (batch.fileCount === 1 ? " file" : " files") +
+                " • " +
+                formatBytes(batch.totalBytes);
+              if (batch.fileCount === 0 && listContainer) {
+                listContainer.innerHTML =
+                  '<div class="text-center text-muted py-4 small">This collection is empty.</div>';
               }
-            })
-            .catch(function () {
-              addRowBtn.disabled = false;
-              addRowBtn.textContent = "+ Vault";
             });
-        };
-        actionsDiv.appendChild(addRowBtn);
+          };
+          rowActions.appendChild(removeBtn);
+        }
+
+        header.appendChild(btn);
+        header.appendChild(rowActions);
+        item.appendChild(header);
+        listContainer.appendChild(item);
       }
-
-      if (batch.allowDownload) {
-        var dlBtn = document.createElement("a");
-        dlBtn.href = "/api/shares/" + shareToken + "/files/" + f.id + "/download";
-        dlBtn.className = "btn btn-sm btn-success fw-bold py-0 px-2";
-        dlBtn.style.fontSize = "0.78rem";
-        dlBtn.textContent = "Download";
-        if (hasReachedDownloadLimit(batch)) disableDownloadLink(dlBtn);
-        actionsDiv.appendChild(dlBtn);
-      }
-
-      if (batch.accessType === "edit") {
-        var removeBtn = document.createElement("button");
-        removeBtn.type = "button";
-        removeBtn.className = "btn btn-sm btn-danger fw-bold py-0 px-2";
-        removeBtn.style.fontSize = "0.78rem";
-        removeBtn.textContent = "Remove";
-        removeBtn.onclick = function () {
-          removeSharedFile(shareToken, f.id, f.fileName, function () {
-            tr.remove();
-            batch.files = batch.files.filter(function (item) {
-              return item.id !== f.id;
-            });
-            batch.fileCount = batch.files.length;
-            batch.totalBytes = batch.files.reduce(function (sum, item) {
-              return sum + (Number(item.sizeBytes) || 0);
-            }, 0);
-            document.getElementById("batch-collection-subtitle").textContent =
-              batch.fileCount +
-              (batch.fileCount === 1 ? " file" : " files") +
-              " • " +
-              formatBytes(batch.totalBytes);
-            if (batch.fileCount === 0) {
-              tbody.innerHTML =
-                '<tr><td colspan="4" class="text-center text-muted py-4">This collection is empty.</td></tr>';
-            }
-          });
-        };
-        actionsDiv.appendChild(removeBtn);
-      }
-
-      actionTd.appendChild(actionsDiv);
-
-      tr.appendChild(iconTd);
-      tr.appendChild(nameTd);
-      tr.appendChild(sizeTd);
-      tr.appendChild(actionTd);
-      tbody.appendChild(tr);
     });
   }
 

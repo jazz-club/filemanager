@@ -68,12 +68,6 @@
           placeholder="Search…"
         />
       </div>
-      <span
-        class="px-2 small text-muted font-monospace flex-shrink-0 d-md-none"
-        id="file-count-mobile"
-        title="Item count"
-        >0</span
-      >
     </div>
 
     <div class="toolbar-divider d-none d-md-block"></div>
@@ -352,12 +346,6 @@
       <button id="refresh-btn" class="toolbar-btn" title="Refresh list">Refresh</button>
 
       <div class="toolbar-divider d-none d-md-block"></div>
-      <span
-        class="px-2 small text-muted font-monospace d-none d-md-inline"
-        id="file-count"
-        title="Item count"
-        >0</span
-      >
     </div>
   </div>
 
@@ -373,5 +361,67 @@
       <div class="small fw-semibold text-muted">nun here for now</div>
     </div>
     <div class="accordion" id="filesAccordion"></div>
+  </div>
+
+  <div
+    id="vault-pagination"
+    class="vault-pagination d-flex flex-wrap align-items-center justify-content-between gap-2 mb-4"
+  >
+    <div id="vault-pagination-info" class="small text-muted font-monospace">Showing 0 items</div>
+    <div class="vault-pagination-controls d-flex flex-wrap align-items-center gap-2">
+      <span id="vault-page-indicator" class="small text-muted font-monospace">Page 1 of 1</span>
+      <button
+        type="button"
+        id="vault-page-prev"
+        class="btn btn-sm btn-white border border-dark fw-bold"
+        aria-label="Previous page"
+      >
+        ‹ Previous
+      </button>
+      <button
+        type="button"
+        id="vault-page-next"
+        class="btn btn-sm btn-white border border-dark fw-bold"
+        aria-label="Next page"
+      >
+        Next ›
+      </button>
+      <div class="dropdown">
+        <button
+          type="button"
+          id="vault-page-size-btn"
+          class="toolbar-btn dropdown-toggle"
+          data-bs-toggle="dropdown"
+          aria-expanded="false"
+        >
+          50 per page
+        </button>
+        <ul
+          class="dropdown-menu dropdown-menu-end shadow-sm border-dark"
+          aria-labelledby="vault-page-size-btn"
+        >
+          <li>
+            <button type="button" class="dropdown-item py-1" data-vault-page-size="25">
+              25 per page
+            </button>
+          </li>
+          <li>
+            <button type="button" class="dropdown-item py-1" data-vault-page-size="50">
+              50 per page
+            </button>
+          </li>
+          <li>
+            <button type="button" class="dropdown-item py-1" data-vault-page-size="100">
+              100 per page
+            </button>
+          </li>
+          <li>
+            <button type="button" class="dropdown-item py-1" data-vault-page-size="200">
+              200 per page
+            </button>
+          </li>
+        </ul>
+      </div>
+    </div>
   </div>
 </main>

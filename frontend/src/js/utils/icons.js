@@ -1,6 +1,17 @@
-function getFileIconUrl(mime, name) {
+function getFileIconUrl(mime, name, isFolder) {
+  if (isFolder) return "/src/assets/icons/file-folder.png";
   var m = (mime || "").toLowerCase().trim();
   var n = (name || "").toLowerCase().trim();
+
+  if (
+    m === "folder" ||
+    m === "directory" ||
+    m === "inode/directory" ||
+    m.startsWith("folder/") ||
+    m.startsWith("directory/")
+  ) {
+    return "/src/assets/icons/file-folder.png";
+  }
 
   if (m.startsWith("audio/")) return "/src/assets/icons/file-audio.png";
   if (m.startsWith("video/")) return "/src/assets/icons/file-video.png";

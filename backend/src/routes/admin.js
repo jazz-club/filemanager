@@ -1,11 +1,25 @@
 const { Router } = require("express");
-const { userRepository, fileRepository, folderRepository, settingsRepository } = require("../db");
-const { deleteObject } = require("../storage");
+const { userRepository, fileRepository, settingsRepository } = require("../db");
+const { deleteObject, checkStorage } = require("../storage");
 const { getClientIp, checkCooldown, recordFailedAttempt, clearCooldown } = require("../ratelimit");
 const logger = require("../logger");
 const { generateCsrfToken } = require("../csrf");
+const { pool } = require("../db/connection");
+const crypto = require("crypto");
+const { decryptJson, auditOwnerKey } = require("../crypto");
 
 const router = Router();
+
+function accountRefFromOwnerKey(ownerKey) {
+  return crypto
+    .createHmac("sha256", process.env.SESSION_SECRET)
+    .update("admin-account:" + ownerKey)
+    .digest("hex");
+}
+
+function accountRef(userId) {
+  return accountRefFromOwnerKey(auditOwnerKey(userId));
+}
 
 function requireAdmin(req, res, next) {
   if (!req.session || !req.session.isAdmin) {
@@ -121,22 +135,100 @@ router.post("/logout", (req, res) => {
 
 router.get("/stats", requireAdmin, async (req, res) => {
   try {
-    const [totalUsers, fileStats, totalFolders] = await Promise.all([
-      userRepository.getUserCount(),
-      fileRepository.getGlobalFileStats(),
-      folderRepository.getFolderCount(),
-    ]);
+    const [fileStats, accountCountQ, activeSharesQ, securityQ, objectStorageOk] = await Promise.all(
+      [
+        fileRepository.getGlobalFileStats(),
+        pool.query("SELECT COUNT(*)::int AS total FROM users"),
+        pool.query(
+          "SELECT COUNT(*)::int AS total FROM file_shares WHERE expires_at IS NULL OR expires_at > NOW()"
+        ),
+        pool.query(
+          `SELECT
+           COUNT(*) FILTER (WHERE event IN ('AUTH_LOGIN_FAILURE', 'ADMIN_LOGIN_FAILURE'))::int AS "failedSignIns24h",
+           COUNT(*) FILTER (WHERE event IN ('AUTH_LOCKOUT', 'ADMIN_LOCKOUT'))::int AS "lockouts24h"
+         FROM audit_logs
+         WHERE created_at >= NOW() - INTERVAL '24 hours'`
+        ),
+        checkStorage()
+          .then(() => true)
+          .catch(() => false),
+      ]
+    );
 
     res.json({
-      totalUsers,
-      totalFiles: fileStats.totalFiles,
       totalBytes: fileStats.totalBytes,
-      totalFolders,
-      status: "Healthy",
+      accounts: accountCountQ.rows[0].total,
+      activeShares: activeSharesQ.rows[0].total,
+      failedSignIns24h: securityQ.rows[0].failedSignIns24h,
+      lockouts24h: securityQ.rows[0].lockouts24h,
+      objectStorageStatus: objectStorageOk ? "Healthy" : "Unavailable",
+      status: objectStorageOk ? "Healthy" : "Degraded",
     });
   } catch (err) {
     console.error("Admin stats error:", err);
     res.status(500).json({ error: "Failed to fetch stats" });
+  }
+});
+
+router.get("/audit-logs", requireAdmin, async (req, res) => {
+  try {
+    const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 50, 1), 200);
+    const offset = Math.max(parseInt(req.query.offset, 10) || 0, 0);
+    const category = String(req.query.category || "all").toLowerCase();
+    const outcome = String(req.query.outcome || "all").toUpperCase();
+    const search = String(req.query.search || "").trim();
+    const conditions = [];
+    const values = [];
+    let p = 1;
+    const categoryPatterns = {
+      security:
+        "(event ILIKE 'AUTH_%' OR event ILIKE 'ADMIN_LOGIN_%' OR event ILIKE '%LOCKOUT%' OR event ILIKE 'SECURITY_%')",
+      accounts:
+        "(event ILIKE 'ADMIN_ACCOUNT_%' OR event ILIKE 'ADMIN_REGISTRATION_%' OR event ILIKE 'AUTH_REGISTER_%')",
+      files: "(event ILIKE 'FILE_%' OR event ILIKE 'FOLDER_%')",
+      shares: "event ILIKE '%SHARE%'",
+    };
+    if (categoryPatterns[category]) conditions.push(categoryPatterns[category]);
+    if (outcome !== "ALL") {
+      conditions.push(`outcome = $${p++}`);
+      values.push(outcome);
+    }
+    if (search) {
+      conditions.push(`event ILIKE $${p++}`);
+      values.push("%" + search.replace(/[\\%_]/g, "\\$&") + "%");
+    }
+    const where = conditions.length ? "WHERE " + conditions.join(" AND ") : "";
+    const countQ = await pool.query(
+      `SELECT COUNT(*)::int AS total FROM audit_logs ${where}`,
+      values
+    );
+    const total = countQ.rows[0].total;
+    const safeOffset = total ? Math.min(offset, Math.floor((total - 1) / limit) * limit) : 0;
+    const result = await pool.query(
+      `SELECT user_id AS "ownerKey", event, level, outcome, details, created_at AS "createdAt"
+       FROM audit_logs ${where}
+       ORDER BY created_at DESC, id DESC LIMIT $${p} OFFSET $${p + 1}`,
+      [...values, limit, safeOffset]
+    );
+    const logs = result.rows.map((row) => {
+      const details = decryptJson(row.details) || {};
+      const targetRef =
+        row.event === "ADMIN_ACCOUNT_DELETED" && details.accountRef
+          ? "acct_" + String(details.accountRef).slice(0, 10)
+          : null;
+      return {
+        event: row.event,
+        level: row.level,
+        outcome: row.outcome,
+        createdAt: row.createdAt,
+        actorRef: row.ownerKey ? "acct_" + accountRefFromOwnerKey(row.ownerKey).slice(0, 10) : null,
+        targetRef,
+      };
+    });
+    res.json({ logs, total, limit, offset: safeOffset });
+  } catch (err) {
+    console.error("Admin audit logs error:", err);
+    res.status(500).json({ error: "Failed to load global audit logs" });
   }
 });
 
@@ -158,6 +250,13 @@ router.patch("/settings", requireAdmin, async (req, res) => {
     }
 
     await settingsRepository.setRegistrationAllowed(allowRegistration);
+    logger.audit({
+      event: "ADMIN_REGISTRATION_SETTING_CHANGED",
+      req,
+      outcome: "SUCCESS",
+      statusCode: 200,
+      details: { allowRegistration },
+    });
 
     res.json({
       message: `New account registrations are now ${allowRegistration ? "ENABLED" : "DISABLED"}.`,
@@ -171,18 +270,29 @@ router.patch("/settings", requireAdmin, async (req, res) => {
 
 router.get("/users", requireAdmin, async (req, res) => {
   try {
+    const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 25, 1), 200);
+    const offset = Math.max(parseInt(req.query.offset, 10) || 0, 0);
+    const filter = String(req.query.filter || "all").toLowerCase();
+    const search = String(req.query.search || "")
+      .trim()
+      .toLowerCase();
     const rows = await userRepository.getAllUsersWithStats();
 
-    const users = rows.map((row) => ({
-      id: row.id,
-      pseudonym: row.pseudonym || `user_${row.id}`,
-      createdAt: row.created_at,
-      fileCount: parseInt(row.file_count, 10),
-      totalBytes: parseInt(row.total_bytes, 10),
-      folderCount: parseInt(row.folder_count, 10),
-    }));
+    const matched = rows
+      .map((row) => ({
+        accountRef: accountRef(row.id),
+        totalBytes: parseInt(row.total_bytes, 10),
+      }))
+      .filter((row) => {
+        if (filter === "stored" && row.totalBytes <= 0) return false;
+        if (filter === "empty" && row.totalBytes > 0) return false;
+        return !search || row.accountRef.toLowerCase().startsWith(search.replace(/^acct_/, ""));
+      });
+    const total = matched.length;
+    const safeOffset = total ? Math.min(offset, Math.floor((total - 1) / limit) * limit) : 0;
+    const users = matched.slice(safeOffset, safeOffset + limit);
 
-    res.json(users);
+    res.json({ users, total, limit, offset: safeOffset, filter });
   } catch (err) {
     console.error("Admin list users error:", err);
     res.status(500).json({ error: "Failed to load users" });
@@ -191,15 +301,23 @@ router.get("/users", requireAdmin, async (req, res) => {
 
 router.delete("/users/:id", requireAdmin, async (req, res) => {
   try {
-    const targetUserId = parseInt(req.params.id, 10);
-    if (!targetUserId) return res.status(400).json({ error: "Invalid user ID" });
+    const ref = req.params.id;
+    const users = await userRepository.getAllUsersWithStats();
+    const target = users.find((row) => {
+      const expected = accountRef(row.id);
+      const a = Buffer.from(expected);
+      const b = Buffer.from(ref);
+      return a.length === b.length && crypto.timingSafeEqual(a, b);
+    });
+    const targetUserId = target && target.id;
+    if (!targetUserId) return res.status(404).json({ error: "Account not found" });
 
     const storageKeys = await fileRepository.getStorageKeysByOwner(targetUserId);
     for (const storageKey of storageKeys) {
       try {
         await deleteObject(storageKey);
       } catch (minioErr) {
-        console.error("Error deleting MD minIO file:", storageKey, minioErr);
+        logger.error("Account storage cleanup failed", minioErr);
       }
     }
 
@@ -208,7 +326,15 @@ router.delete("/users/:id", requireAdmin, async (req, res) => {
       return res.status(404).json({ error: "User not found" });
     }
 
-    res.json({ message: `User #${targetUserId} and all encrypted data permanently deleted.` });
+    logger.audit({
+      event: "ADMIN_ACCOUNT_DELETED",
+      req,
+      outcome: "SUCCESS",
+      statusCode: 200,
+      details: { accountRef: ref },
+    });
+
+    res.json({ message: "Account and its stored data were permanently deleted." });
   } catch (err) {
     console.error("Admin delete user error:", err);
     res.status(500).json({ error: "Failed to delete user" });

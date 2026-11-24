@@ -1,6 +1,6 @@
 <div id="share-batch-view" class="p-3 p-md-4 d-none">
   <div
-    class="d-flex align-items-start justify-content-between flex-wrap gap-3 mb-3 pb-3 border-bottom border-dark"
+    class="share-collection-heading d-flex align-items-start justify-content-between flex-wrap gap-3 mb-3 pb-3 border-bottom border-dark"
   >
     <div>
       <h4 class="fw-bold mb-1 d-flex align-items-center gap-2">
@@ -18,7 +18,7 @@
       </div>
     </div>
 
-    <div class="d-flex align-items-center gap-2 flex-wrap">
+    <div class="share-page-actions d-flex align-items-center gap-2 flex-wrap">
       <button
         type="button"
         id="batch-save-vault-btn"
@@ -57,7 +57,7 @@
     class="alert alert-info py-2 px-3 d-flex align-items-center justify-content-between gap-2 mb-3 d-none"
     style="font-size: 0.82rem"
   >
-    <div class="d-flex align-items-center gap-2">
+    <div class="share-page-actions d-flex align-items-center gap-2">
       <img
         src="/src/assets/icons/lib/SVG/regular/home.svg"
         width="16"
@@ -66,8 +66,8 @@
         alt=""
       />
       <span id="batch-logged-in-msg"
-        >Logged in • Click <strong>Add All to Vault</strong> above to save this entire collection
-        into your vault.</span
+        >Logged in as <strong id="batch-logged-in-user">user</strong>. Files can be saved to your
+        vault using the + button or clicking add all to vault.</span
       >
     </div>
   </div>
@@ -140,21 +140,12 @@
       alt=""
       style="image-rendering: pixelated"
     />
-    <span class="small"
-      >This collection is shared as <strong>View/Download</strong>.</span
-    >
+    <span class="small">This collection is shared as <strong>View/Download</strong>.</span>
   </div>
 
-  <div class="table-responsive border border-dark rounded bg-white">
-    <table class="table table-hover mb-0 align-middle">
-      <thead class="table-light border-bottom border-dark">
-        <tr>
-          <th style="width: 40px"></th>
-          <th>Name</th>
-          <th class="d-none d-sm-table-cell">Size</th>
-          <th class="text-end pe-3">Actions</th>
-        </tr>
-      </thead>
+  <div class="border border-dark rounded bg-white overflow-hidden shadow-sm">
+    <div id="batch-files-list" class="batch-files-accordion"></div>
+    <table class="d-none">
       <tbody id="batch-files-tbody"></tbody>
     </table>
   </div>

@@ -17,6 +17,11 @@ async function initStorage() {
   }
 }
 
+async function checkStorage() {
+  await minioClient.bucketExists(BUCKET);
+  return true;
+}
+
 async function putObject(key, data) {
   await minioClient.putObject(BUCKET, key, data);
 }
@@ -61,4 +66,4 @@ async function copyObject(sourceKey, targetKey) {
   });
 }
 
-module.exports = { initStorage, putObject, getObject, deleteObject, copyObject };
+module.exports = { initStorage, checkStorage, putObject, getObject, deleteObject, copyObject };

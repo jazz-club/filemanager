@@ -2,6 +2,7 @@ var searchDebounceTimer = null;
 searchInput.oninput = function () {
   clearTimeout(searchDebounceTimer);
   searchDebounceTimer = setTimeout(function () {
+    vaultCurrentPage = 1;
     renderList();
   }, 100);
 };
@@ -20,6 +21,7 @@ document.querySelectorAll(".filter-opt").forEach(function (btn) {
       filterDropdownBtn.textContent = "Filter: " + label;
     }
     closeAllMenus();
+    vaultCurrentPage = 1;
     renderList();
   };
 });
@@ -36,6 +38,7 @@ document.querySelectorAll(".sort-opt").forEach(function (btn) {
     if (sortDropdownBtn) {
       sortDropdownBtn.textContent = "Sort: " + btn.textContent.trim().replace(" First", "");
     }
+    vaultCurrentPage = 1;
     renderList();
   };
 });

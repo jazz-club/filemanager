@@ -3,6 +3,7 @@ const path = require("path");
 const { folderRepository, pool } = require("../db");
 const { deleteObject } = require("../storage");
 const logger = require("../logger");
+const { blindIndex } = require("../crypto");
 
 const router = Router();
 
@@ -110,6 +111,25 @@ router.post("/", requireAuth, async (req, res) => {
       if (!parent) return res.status(400).json({ error: "Parent folder not found" });
     }
 
+    let existing;
+    if (targetParentId) {
+      const q = await pool.query(
+        "SELECT id, name, parent_id, color, created_at, updated_at FROM folders WHERE owner_id = $1 AND parent_id = $2 AND name_hash = $3 LIMIT 1",
+        [req.session.userId, targetParentId, blindIndex(cleanName)]
+      );
+      existing = q.rows[0];
+    } else {
+      const q = await pool.query(
+        "SELECT id, name, parent_id, color, created_at, updated_at FROM folders WHERE owner_id = $1 AND parent_id IS NULL AND name_hash = $2 LIMIT 1",
+        [req.session.userId, blindIndex(cleanName)]
+      );
+      existing = q.rows[0];
+    }
+    if (existing) {
+      existing.name = require("../crypto").decryptText(existing.name);
+      return res.status(200).json(existing);
+    }
+
     const folder = await folderRepository.createFolder(
       req.session.userId,
       cleanName,
@@ -121,6 +141,9 @@ router.post("/", requireAuth, async (req, res) => {
       event: "FOLDER_CREATE_SUCCESS",
       req,
       userId: req.session.userId,
+      itemType: "folder",
+      itemId: folder.id,
+      itemName: cleanName,
       outcome: "SUCCESS",
       statusCode: 201,
       details: { folderId: folder.id, folderName: cleanName },
@@ -147,6 +170,19 @@ router.patch("/:id/color", requireAuth, async (req, res) => {
       cleanColor
     );
     if (!folder) return res.status(404).json({ error: "Folder not found" });
+
+    logger.audit({
+      event: "FOLDER_COLOR_CHANGE",
+      req,
+      userId: req.session.userId,
+      itemType: "folder",
+      itemId: folderId,
+      itemName: folder.name,
+      details: { color: cleanColor },
+      outcome: "SUCCESS",
+      statusCode: 200,
+    });
+
     res.json(folder);
   } catch (err) {
     logger.error("Change folder color error", err);
@@ -167,6 +203,19 @@ router.patch("/:id/rename", requireAuth, async (req, res) => {
       name.trim().slice(0, 255)
     );
     if (!folder) return res.status(404).json({ error: "Folder not found" });
+
+    logger.audit({
+      event: "FOLDER_RENAME_SUCCESS",
+      req,
+      userId: req.session.userId,
+      itemType: "folder",
+      itemId: folderId,
+      itemName: folder.name,
+      details: { newName: folder.name },
+      outcome: "SUCCESS",
+      statusCode: 200,
+    });
+
     res.json(folder);
   } catch (err) {
     console.error("Rename folder error:", err);
@@ -196,6 +245,19 @@ router.patch("/:id/move", requireAuth, async (req, res) => {
 
     const folder = await folderRepository.moveFolder(folderId, req.session.userId, targetParentId);
     if (!folder) return res.status(404).json({ error: "Folder not found" });
+
+    logger.audit({
+      event: "FOLDER_MOVE_SUCCESS",
+      req,
+      userId: req.session.userId,
+      itemType: "folder",
+      itemId: folder.id,
+      itemName: folder.name,
+      details: { parentId: targetParentId },
+      outcome: "SUCCESS",
+      statusCode: 200,
+    });
+
     res.json({ id: folder.id, name: folder.name, parent_id: folder.parent_id });
   } catch (err) {
     console.error("Move folder error:", err);
@@ -215,10 +277,22 @@ router.delete("/:id", requireAuth, async (req, res) => {
       try {
         await deleteObject(storageKey);
       } catch (err) {
-        console.error("Failed to delete MinIO object:", storageKey, err);
+        logger.error("Folder storage cleanup failed", err);
       }
     }
     await folderRepository.deleteFolderRows(folderIds, req.session.userId);
+
+    logger.audit({
+      event: "FOLDER_DELETE_SUCCESS",
+      req,
+      userId: req.session.userId,
+      itemType: "folder",
+      itemId: folderId,
+      details: { descendantFolderCount: folderIds.length },
+      outcome: "SUCCESS",
+      statusCode: 200,
+    });
+
     res.json({ message: "Folder and all its contents permanently deleted" });
   } catch (err) {
     console.error("Delete folder error:", err);

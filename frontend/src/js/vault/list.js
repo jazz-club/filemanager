@@ -1,7 +1,52 @@
+var vaultCurrentPage = 1;
+var vaultPageSize = parseInt(localStorage.getItem("vault_page_size"), 10) || 50;
+
+function updateVaultPagination(totalItems) {
+  var totalPages = Math.max(1, Math.ceil(totalItems / vaultPageSize));
+  vaultCurrentPage = Math.min(Math.max(1, vaultCurrentPage), totalPages);
+  var start = totalItems === 0 ? 0 : (vaultCurrentPage - 1) * vaultPageSize + 1;
+  var end = Math.min(vaultCurrentPage * vaultPageSize, totalItems);
+  var info = document.getElementById("vault-pagination-info");
+  var indicator = document.getElementById("vault-page-indicator");
+  var previous = document.getElementById("vault-page-prev");
+  var next = document.getElementById("vault-page-next");
+  var sizeButton = document.getElementById("vault-page-size-btn");
+  if (info)
+    info.textContent = totalItems
+      ? "Showing " + start + "–" + end + " of " + totalItems + " items"
+      : "Showing 0 items";
+  if (indicator) indicator.textContent = "Page " + vaultCurrentPage + " of " + totalPages;
+  if (previous) previous.disabled = vaultCurrentPage <= 1;
+  if (next) next.disabled = vaultCurrentPage >= totalPages;
+  if (sizeButton) sizeButton.textContent = vaultPageSize + " per page";
+}
+
+var vaultPreviousPageBtn = document.getElementById("vault-page-prev");
+var vaultNextPageBtn = document.getElementById("vault-page-next");
+if (vaultPreviousPageBtn)
+  vaultPreviousPageBtn.onclick = function () {
+    if (vaultCurrentPage > 1) {
+      vaultCurrentPage--;
+      renderList();
+    }
+  };
+if (vaultNextPageBtn)
+  vaultNextPageBtn.onclick = function () {
+    vaultCurrentPage++;
+    renderList();
+  };
+document.querySelectorAll("[data-vault-page-size]").forEach(function (option) {
+  option.onclick = function () {
+    vaultPageSize = parseInt(option.getAttribute("data-vault-page-size"), 10) || 50;
+    vaultCurrentPage = 1;
+    localStorage.setItem("vault_page_size", String(vaultPageSize));
+    renderList();
+  };
+});
+
 function renderList() {
   var accordion = document.getElementById("filesAccordion");
   var emptyMsg = document.getElementById("file-list-empty");
-  var fileCountBadge = document.getElementById("file-count");
 
   var query = (searchInput.value || "").trim().toLowerCase();
   var filterType = currentFilterVal || (typeFilter ? typeFilter.value : "all");
@@ -63,25 +108,52 @@ function renderList() {
     return 0;
   });
 
-  var totalItems = filteredFolders.length + filteredFiles.length;
-  var countText = totalItems + (totalItems === 1 ? " item" : " items");
-  if (fileCountBadge) {
-    fileCountBadge.textContent = countText;
-  }
-  var fileCountMobile = document.getElementById("file-count-mobile");
-  if (fileCountMobile) {
-    fileCountMobile.textContent = countText;
+  var revealIds = window.vaultRevealUploadedFileIds || [];
+  if (revealIds.length) {
+    var revealedIndex = filteredFiles.findIndex(function (file) {
+      return revealIds.indexOf(file.id) !== -1;
+    });
+    if (revealedIndex !== -1) {
+      vaultCurrentPage = Math.floor((filteredFolders.length + revealedIndex) / vaultPageSize) + 1;
+      window.vaultRevealUploadedFileIds = [];
+    }
   }
 
+  var totalItems = filteredFolders.length + filteredFiles.length;
+  updateVaultPagination(totalItems);
+  var pageStart = (vaultCurrentPage - 1) * vaultPageSize;
+  var pageItems = filteredFolders
+    .map(function (item) {
+      return { kind: "folder", value: item };
+    })
+    .concat(
+      filteredFiles.map(function (item) {
+        return { kind: "file", value: item };
+      })
+    )
+    .slice(pageStart, pageStart + vaultPageSize);
+  var visibleFolders = pageItems
+    .filter(function (item) {
+      return item.kind === "folder";
+    })
+    .map(function (item) {
+      return item.value;
+    });
+  var visibleFiles = pageItems
+    .filter(function (item) {
+      return item.kind === "file";
+    })
+    .map(function (item) {
+      return item.value;
+    });
+
   var prevMap = new Map();
-  var prevElements = renderConfigurationChanged
-    ? []
-    : accordion.querySelectorAll("[data-item-key]:not(.item-ghost-disappearing)");
+  var prevElements = accordion.querySelectorAll("[data-item-key]:not(.item-ghost-disappearing)");
   var newKeys = new Set();
-  filteredFolders.forEach(function (f) {
+  visibleFolders.forEach(function (f) {
     newKeys.add("folder-" + f.id);
   });
-  filteredFiles.forEach(function (f) {
+  visibleFiles.forEach(function (f) {
     newKeys.add("file-" + f.id);
   });
 
@@ -94,7 +166,9 @@ function renderList() {
     if (!key) return;
     var rect = el.getBoundingClientRect();
     prevMap.set(key, rect);
-    existingNodes.set(key, el);
+    if (!renderConfigurationChanged) {
+      existingNodes.set(key, el);
+    }
 
     if (!newKeys.has(key)) {
       var ghost = el.cloneNode(true);
@@ -124,9 +198,9 @@ function renderList() {
   } else {
     if (emptyMsg) emptyMsg.classList.add("d-none");
     if (currentViewMode === "grid") {
-      renderGrid(filteredFolders, filteredFiles, query, accordion, existingNodes);
+      renderGrid(visibleFolders, visibleFiles, query, accordion, existingNodes);
     } else {
-      renderListView(filteredFolders, filteredFiles, query, accordion, existingNodes);
+      renderListView(visibleFolders, visibleFiles, query, accordion, existingNodes);
     }
   }
 
@@ -157,8 +231,11 @@ function renderList() {
         var lastRect = el.getBoundingClientRect();
         var dx = firstRect.left - lastRect.left;
         var dy = firstRect.top - lastRect.top;
-        if (Math.abs(dx) > 0.5 || Math.abs(dy) > 0.5) {
+        if (Math.abs(dx) > 0.5 || Math.abs(dy) > 0.5 || renderConfigurationChanged) {
           el.style.transform = "translate(" + dx + "px, " + dy + "px)";
+          if (renderConfigurationChanged) {
+            el.style.opacity = "0.4";
+          }
           el.style.transition = "none";
         }
       } else {
@@ -178,6 +255,7 @@ function renderList() {
           el.style.opacity = "";
           var cleanup = function () {
             el.style.transition = "";
+            el.style.opacity = "";
             el.removeEventListener("transitionend", cleanup);
           };
           el.addEventListener("transitionend", cleanup);
@@ -220,7 +298,9 @@ function handleFolderDrop(e, folder) {
     } catch (err) {}
   }
 
-  if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+  if (typeof handleDropDataTransfer === "function") {
+    handleDropDataTransfer(e.dataTransfer, folder.id);
+  } else if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length > 0) {
     enqueueFiles(Array.from(e.dataTransfer.files), folder.id);
   }
 }

@@ -63,7 +63,7 @@ function renderGrid(filteredFolders, filteredFiles, query, accordion, existingNo
     var actions = document.createElement("div");
     actions.className = "dropdown";
     actions.innerHTML =
-      '<button class="btn btn-sm grid-card-action-btn" data-bs-toggle="dropdown" aria-expanded="false">Options ▾</button>' +
+      '<button class="btn btn-sm grid-card-action-btn folder-options-btn" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Folder options" title="Folder options"><span class="folder-options-label">Options</span><span aria-hidden="true">▾</span></button>' +
       '<ul class="dropdown-menu dropdown-menu-end shadow-sm border-dark">' +
       '<li><a class="dropdown-item folder-info py-1" href="#">Folder Information</a></li>' +
       '<li><a class="dropdown-item share-folder py-1" href="#">Share folder</a></li>' +
@@ -143,7 +143,7 @@ function renderGrid(filteredFolders, filteredFiles, query, accordion, existingNo
       "text-center py-2 flex-grow-1 d-flex flex-column align-items-center justify-content-center";
     centerBox.style.cursor = "pointer";
     centerBox.innerHTML =
-      "<span class=\"grid-icon-large mb-1\" style=\"font-family: 'Segoe UI Symbol', 'Apple Symbols', sans-serif !important; font-size: 2.2rem; color: #000000; line-height: 1;\">&#x1F4C1;&#xFE0E;</span>" +
+      '<img src="/src/assets/icons/file-folder.png" class="grid-file-icon-img mb-1" alt="Folder" style="width: 48px; height: 48px; object-fit: contain;" />' +
       '<div class="fw-bold small text-truncate w-100 px-1" title="' +
       escapeHtml(folder.name) +
       '">' +
@@ -383,8 +383,7 @@ function renderGrid(filteredFolders, filteredFiles, query, accordion, existingNo
     };
 
     var actionRow = document.createElement("div");
-    actionRow.className =
-      "d-flex align-items-center mt-auto pt-2 border-top gap-1 w-100 grid-action-row";
+    actionRow.className = "d-flex align-items-center mt-auto gap-1 w-100 grid-action-row";
     actionRow.innerHTML =
       '<button class="btn btn-sm grid-card-action-btn grid-share-btn flex-fill text-center px-1" title="Share file" aria-label="Share file"><img src="/src/assets/icons/lib/SVG/regular/share.svg" width="15" height="15" alt="" /></button>' +
       '<a href="' +
@@ -461,65 +460,63 @@ function renderListView(filteredFolders, filteredFiles, query, accordion, existi
       openContextMenu(e, "folder", folder);
     });
 
-    var row = document.createElement("div");
-    row.className = "d-flex align-items-center justify-content-between py-2 px-3";
-
-    var left = document.createElement("div");
-    left.className = "d-flex align-items-center gap-2 text-truncate flex-grow-1";
-    left.style.cursor = "pointer";
+    var folderHeader = document.createElement("div");
+    folderHeader.className = "accordion-header list-file-header d-flex align-items-center";
 
     var chk = document.createElement("input");
     chk.type = "checkbox";
-    chk.className = "form-check-input mt-0 me-2 ms-0";
+    chk.className = "form-check-input ms-3 me-2 mt-0";
     chk.checked = isFolderSelected(folder.id);
     chk.onclick = function (e) {
       e.stopPropagation();
       toggleFolderSelection(folder.id, chk.checked);
     };
 
-    var folderIconSpan = document.createElement("span");
-    folderIconSpan.style.cssText =
-      "font-family: 'Segoe UI Symbol', 'Apple Symbols', sans-serif !important; font-size: 1.35rem; color: #000000; line-height: 1; display: inline-flex; align-items: center; margin-right: 0.25rem; cursor: pointer;";
-    folderIconSpan.innerHTML = "&#x1F4C1;&#xFE0E;";
-    folderIconSpan.title = "Select " + folder.name;
-    folderIconSpan.onclick = function (e) {
-      e.stopPropagation();
-      toggleFolderSelection(folder.id);
-    };
-
-    var nameSpan = document.createElement("span");
-    nameSpan.className = "fw-bold text-truncate";
-    nameSpan.innerHTML = highlightMatch(folder.name, query);
-    nameSpan.title = folder.name;
-
-    var badgeSpan = document.createElement("span");
-    badgeSpan.className = "badge bg-secondary ms-2 small";
-    badgeSpan.textContent = "Folder";
-
-    left.appendChild(chk);
-    left.appendChild(folderIconSpan);
-    left.appendChild(nameSpan);
-    left.appendChild(badgeSpan);
-
-    left.onclick = function () {
-      if (selectedFileIds.size > 0 || selectedFolderIds.size > 0) {
+    var btn = document.createElement("button");
+    btn.className = "accordion-button collapsed py-2 px-2 list-file-toggle";
+    btn.type = "button";
+    btn.style.boxShadow = "none";
+    btn.onclick = function (e) {
+      if (e.target.closest(".list-file-icon-click")) {
+        e.preventDefault();
+        e.stopPropagation();
+        toggleFolderSelection(folder.id);
+        return;
+      }
+      if (
+        (selectedFileIds.size > 0 || selectedFolderIds.size > 0) &&
+        !(window.matchMedia && window.matchMedia("(max-width: 767.98px)").matches)
+      ) {
+        e.preventDefault();
+        e.stopPropagation();
         toggleFolderSelection(folder.id);
         return;
       }
       navigateToFolder(folder.id, folder.name);
     };
 
-    var right = document.createElement("div");
-    right.className = "d-flex align-items-center gap-3 flex-shrink-0 ms-2";
+    btn.innerHTML =
+      '<div class="d-flex align-items-center gap-2 w-100 text-truncate min-w-0">' +
+      '<span class="me-1 d-inline-flex align-items-center flex-shrink-0 list-file-icon-click" style="cursor: pointer;" title="Select ' +
+      escapeHtml(folder.name) +
+      '">' +
+      '<img src="/src/assets/icons/file-folder.png" class="file-icon-img" alt="" width="20" height="20" style="image-rendering: pixelated; object-fit: contain; vertical-align: middle; flex-shrink: 0;" />' +
+      "</span>" +
+      '<span class="fw-bold text-truncate" title="' +
+      escapeHtml(folder.name) +
+      '">' +
+      highlightMatch(folder.name, query) +
+      "</span>" +
+      '<span class="badge bg-secondary ms-2 small flex-shrink-0">Folder</span>' +
+      "</div>";
 
-    var dateSpan = document.createElement("span");
-    dateSpan.className = "small text-muted d-none d-md-inline";
-    dateSpan.textContent = formatDate(folder.created_at);
+    var rowActions = document.createElement("div");
+    rowActions.className = "list-row-actions d-flex align-items-center gap-2 flex-shrink-0";
 
     var actions = document.createElement("div");
     actions.className = "dropdown";
     actions.innerHTML =
-      '<button class="btn btn-sm btn-white border border-dark py-0 px-2 fw-bold" data-bs-toggle="dropdown" data-bs-display="static" aria-expanded="false" title="Folder Options">Options ▾</button>' +
+      '<button class="btn btn-sm btn-white border border-dark py-0 px-2 fw-bold folder-options-btn" data-bs-toggle="dropdown" data-bs-display="static" aria-expanded="false" aria-label="Folder options" title="Folder options"><span class="folder-options-label">Options</span><span aria-hidden="true">▾</span></button>' +
       '<ul class="dropdown-menu dropdown-menu-end shadow-sm border-dark">' +
       '<li><a class="dropdown-item folder-info" href="#">Folder Information</a></li>' +
       '<li><a class="dropdown-item share-folder" href="#">Share folder</a></li>' +
@@ -575,12 +572,12 @@ function renderListView(filteredFolders, filteredFiles, query, accordion, existi
       openDeleteModal("folder", folder.id, folder.name);
     };
 
-    right.appendChild(dateSpan);
-    right.appendChild(actions);
+    rowActions.appendChild(actions);
 
-    row.appendChild(left);
-    row.appendChild(right);
-    folderItem.appendChild(row);
+    folderHeader.appendChild(chk);
+    folderHeader.appendChild(btn);
+    folderHeader.appendChild(rowActions);
+    folderItem.appendChild(folderHeader);
     accordion.appendChild(folderItem);
   });
 
@@ -636,10 +633,7 @@ function renderListView(filteredFolders, filteredFiles, query, accordion, existi
     item.setAttribute("data-item-key", "file-" + file.id);
     item.draggable = true;
     item.ondragstart = function (e) {
-      if (
-        e.target.tagName === "IMG" ||
-        e.target.tagName === "VIDEO"
-      ) {
+      if (e.target.tagName === "IMG" || e.target.tagName === "VIDEO") {
         e.preventDefault();
         return;
       }
@@ -761,7 +755,7 @@ function renderListView(filteredFolders, filteredFiles, query, accordion, existi
       _metaHtml +
       "</div>" +
       "</div>" +
-      '<div class="col-12 pt-2 border-top d-flex gap-2 flex-wrap align-items-center">' +
+      '<div class="col-12 d-flex gap-2 flex-wrap align-items-center">' +
       '<button class="btn btn-sm btn-white rename-file-btn">Rename</button>' +
       '<button class="btn btn-sm btn-white move-file-btn">Move</button>' +
       '<button class="btn btn-sm btn-outline-danger delete-file-btn">Delete</button>' +

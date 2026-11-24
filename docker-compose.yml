@@ -27,6 +27,7 @@ services:
       ADMIN_PASSWORD: ${ADMIN_PASSWORD:-adminsecretpassword}
       NODE_ENV: ${NODE_ENV:-development}
       NODE_OPTIONS: "--max-old-space-size=8192"
+      SHARE_PAGE_PATH: /frontend/src/html/share.html
     depends_on:
       postgres:
         condition: service_healthy
@@ -34,6 +35,7 @@ services:
         condition: service_started
     volumes:
       - ./backend:/app
+      - ./frontend:/frontend:ro
       - /app/node_modules
     networks:
       - app-net

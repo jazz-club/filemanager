@@ -86,7 +86,7 @@ function openShareModalForFolder(folder) {
   setupShareModalUI(
     folder.name,
     "Folder",
-    "<span style=\"font-family: 'Segoe UI Symbol', 'Apple Symbols', sans-serif !important; font-size: 1.35rem; color: #000; line-height: 1;\">&#x1F4C1;&#xFE0E;</span>"
+    '<img src="/src/assets/icons/file-folder.png" alt="" width="22" height="22" style="object-fit: contain; vertical-align: middle;" />'
   );
   var listEl = document.getElementById("active-shares-list");
   if (listEl) {
@@ -191,7 +191,7 @@ function renderShareCard(s, onRevoke) {
     : "";
 
   var expiryHtml = s.expires_at
-    ? '<span class="share-card-expiry" title="Expires">⏱ ' +
+    ? '<span class="share-card-expiry" title="Expires">Expires: ' +
       escapeHtml(formatDate(s.expires_at)) +
       "</span>"
     : '<span class="share-card-expiry text-muted">No expiry</span>';
@@ -287,6 +287,8 @@ function renderShareCard(s, onRevoke) {
 function loadAllSharesStats() {
   var listEl = document.getElementById("all-shares-list");
   if (!listEl) return;
+  var paginationEl = document.getElementById("all-shares-pagination");
+  if (paginationEl) paginationEl.classList.add("d-none");
   listEl.innerHTML = '<div class="text-muted small text-center py-4">Loading...</div>';
 
   api("/shares/mine/summary")
@@ -319,6 +321,7 @@ function loadAllSharesStats() {
           "</div>";
         return;
       }
+      if (paginationEl) paginationEl.classList.remove("d-none");
 
       var tableHtml =
         '<table class="share-stats-table">' +
@@ -368,7 +371,7 @@ function loadAllSharesStats() {
         var permLabel = s.access_type === "edit" ? "Edit" : "View/Download";
         var permCls = s.access_type === "edit" ? "bg-warning" : "bg-secondary";
         var visCls = s.is_public ? "bg-info" : "badge-private";
-        var expiryTxt = s.expires_at ? formatDate(s.expires_at) : "—";
+        var expiryTxt = s.expires_at ? formatDate(s.expires_at) : "-";
         var expiryStyle = s.expires_at ? "" : ' style="color:#aaa;"';
         tableHtml +=
           '<tr class="share-stats-row" data-share-id="' +
@@ -464,6 +467,9 @@ function loadAllSharesStats() {
       var sortCol = null,
         sortAsc = true;
       var allShares = d.shares.slice();
+      var allSharesStatsPageSize =
+        parseInt(localStorage.getItem("all_shares_stats_page_size"), 10) || 25;
+      var allSharesStatsPage = 1;
       function renderSortedRows() {
         var tbody = listEl.querySelector("tbody");
         if (!tbody) return;
@@ -483,11 +489,37 @@ function loadAllSharesStats() {
           });
         }
 
-        tbody.innerHTML = sorted
+        var totalPages = Math.max(1, Math.ceil(sorted.length / allSharesStatsPageSize));
+        allSharesStatsPage = Math.min(Math.max(1, allSharesStatsPage), totalPages);
+        var pageStart = (allSharesStatsPage - 1) * allSharesStatsPageSize;
+        var pageShares = sorted.slice(pageStart, pageStart + allSharesStatsPageSize);
+        var info = document.getElementById("all-shares-pagination-info");
+        var indicator = document.getElementById("all-shares-page-indicator");
+        var previous = document.getElementById("all-shares-page-prev");
+        var next = document.getElementById("all-shares-page-next");
+        var sizeButton = document.getElementById("all-shares-page-size-btn");
+        if (info) {
+          info.textContent = sorted.length
+            ? "Showing " +
+              (pageStart + 1) +
+              "–" +
+              Math.min(pageStart + allSharesStatsPageSize, sorted.length) +
+              " of " +
+              sorted.length +
+              " links"
+            : "Showing 0 links";
+        }
+        if (indicator) indicator.textContent = "Page " + allSharesStatsPage + " of " + totalPages;
+        if (previous) previous.disabled = allSharesStatsPage <= 1;
+        if (next) next.disabled = allSharesStatsPage >= totalPages;
+        if (sizeButton) sizeButton.textContent = allSharesStatsPageSize + " per page";
+
+        tbody.innerHTML = pageShares
           .map(function (s) {
             var shareUrl = window.location.origin + "/share/" + s.share_token;
             var labelTitle = s.title || s.original_name || (s.is_batch ? "Collection" : "File");
             var permLabel = s.access_type === "edit" ? "Edit" : "View/Download";
+            var mobilePermLabel = s.access_type === "edit" ? "Edit" : "View";
             var permCls = s.access_type === "edit" ? "bg-warning" : "bg-secondary";
             var visCls = s.is_public ? "bg-info" : "badge-private";
             var expiryTxt = s.expires_at ? formatDate(s.expires_at) : "\u2014";
@@ -508,7 +540,12 @@ function loadAllSharesStats() {
               '<td style="white-space:nowrap;"><span class="badge ' +
               permCls +
               '" style="font-size:0.6rem;">' +
+              '<span class="share-stats-desktop-label">' +
               permLabel +
+              "</span>" +
+              '<span class="share-stats-mobile-label">' +
+              mobilePermLabel +
+              "</span>" +
               "</span> " +
               '<span class="badge ' +
               visCls +
@@ -516,7 +553,7 @@ function loadAllSharesStats() {
               (s.is_public ? "Pub" : "Priv") +
               "</span>" +
               (s.is_batch
-                ? ' <span class="badge bg-primary border border-dark" style="font-size:0.6rem;">Bundle</span>'
+                ? ' <span class="badge bg-primary border border-dark" style="font-size:0.6rem;"><span class="share-stats-desktop-label">Bundle</span><span class="share-stats-mobile-label">Bund</span></span>'
                 : "") +
               "</td>" +
               usageCell(s.views_count, s.max_views) +
@@ -584,9 +621,34 @@ function loadAllSharesStats() {
             sortCol = col;
             sortAsc = false;
           }
+          allSharesStatsPage = 1;
           renderSortedRows();
         };
       });
+
+      var previousPageBtn = document.getElementById("all-shares-page-prev");
+      var nextPageBtn = document.getElementById("all-shares-page-next");
+      if (previousPageBtn)
+        previousPageBtn.onclick = function () {
+          if (allSharesStatsPage > 1) {
+            allSharesStatsPage--;
+            renderSortedRows();
+          }
+        };
+      if (nextPageBtn)
+        nextPageBtn.onclick = function () {
+          allSharesStatsPage++;
+          renderSortedRows();
+        };
+      document.querySelectorAll("[data-shares-page-size]").forEach(function (option) {
+        option.onclick = function () {
+          allSharesStatsPageSize = parseInt(option.getAttribute("data-shares-page-size"), 10) || 25;
+          allSharesStatsPage = 1;
+          localStorage.setItem("all_shares_stats_page_size", String(allSharesStatsPageSize));
+          renderSortedRows();
+        };
+      });
+      renderSortedRows();
     })
     .catch(function (err) {
       console.error("Failed to load share summary stats:", err);
@@ -866,7 +928,8 @@ if (revokeAllSharesBtn) {
             });
           })
           .then(function (result) {
-            if (!result.ok) throw new Error(result.data.error || "Failed to revoke all share links");
+            if (!result.ok)
+              throw new Error(result.data.error || "Failed to revoke all share links");
             showMsg(result.data.message || "All share links revoked successfully", "success");
             loadAllSharesStats();
             if (activeShareTarget && activeShareTarget.type === "file") {
