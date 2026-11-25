@@ -51,12 +51,9 @@ function setViewMode(mode) {
     localStorage.getItem(mode === "grid" ? "vault_page_size_grid" : "vault_page_size_list"),
     10
   );
-  var allowedPageSizes = mode === "grid" ? [24, 48] : [25, 50, 100, 200];
-  vaultPageSize = allowedPageSizes.indexOf(savedPageSize) !== -1
-    ? savedPageSize
-    : mode === "grid"
-      ? 48
-      : 50;
+  var allowedPageSizes = mode === "grid" ? [18, 24, 48] : [10, 25, 50, 100, 200];
+  vaultPageSize =
+    allowedPageSizes.indexOf(savedPageSize) !== -1 ? savedPageSize : mode === "grid" ? 48 : 50;
   localStorage.setItem(
     mode === "grid" ? "vault_page_size_grid" : "vault_page_size_list",
     String(vaultPageSize)
@@ -121,14 +118,18 @@ function repositionSelectionDock() {
     var audioTopFromBottom =
       audioRect && audioRect.top > 0 ? window.innerHeight - audioRect.top : 0;
     var targetBottom = Math.max(audioTopFromBottom + 12, isMobile ? 150 : 135);
-    selectionDock.style.bottom = targetBottom + "px";
+    selectionDock.style.bottom = isMobile
+      ? "calc(" + targetBottom + "px + env(safe-area-inset-bottom))"
+      : targetBottom + "px";
   } else if (audioMiniPill && !audioMiniPill.classList.contains("d-none")) {
     var miniRect = audioMiniPill.getBoundingClientRect();
     var miniTopFromBottom = miniRect && miniRect.top > 0 ? window.innerHeight - miniRect.top : 0;
     var targetBottom = Math.max(miniTopFromBottom + 10, isMobile ? 65 : 65);
-    selectionDock.style.bottom = targetBottom + "px";
+    selectionDock.style.bottom = isMobile
+      ? "calc(" + targetBottom + "px + env(safe-area-inset-bottom))"
+      : targetBottom + "px";
   } else {
-    selectionDock.style.bottom = isMobile ? "18px" : "25px";
+    selectionDock.style.bottom = isMobile ? "calc(12px + env(safe-area-inset-bottom))" : "25px";
   }
 }
 

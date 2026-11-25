@@ -36,6 +36,7 @@ function openUploadTray() {
 
   uploadTray.classList.remove("tray-closing");
   uploadTray.classList.remove("d-none");
+  document.body.classList.add("has-activity-tray");
   uploadTray.classList.add("tray-opening");
   setTimeout(function () {
     uploadTray.classList.remove("tray-opening");
@@ -74,6 +75,7 @@ function closeUploadTrayWithAnimation() {
   setTimeout(function () {
     uploadTray.classList.remove("tray-closing");
     uploadTray.classList.add("d-none");
+    document.body.classList.remove("has-activity-tray");
   }, 220);
 }
 

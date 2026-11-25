@@ -207,14 +207,15 @@ function loadAdminAudit() {
       (data.logs || []).forEach(function (log) {
         var tr = document.createElement("tr");
         [
-          new Date(log.createdAt).toLocaleString(),
-          adminEventLabel(log.event),
-          log.actorRef || log.targetRef || "-",
-          log.level,
-          log.outcome,
-        ].forEach(function (value) {
+          ["Time", new Date(log.createdAt).toLocaleString()],
+          ["Activity", adminEventLabel(log.event)],
+          ["Account Ref", log.actorRef || log.targetRef || "-"],
+          ["Severity", log.level],
+          ["Outcome", log.outcome],
+        ].forEach(function (field) {
           var td = document.createElement("td");
-          td.textContent = value || "-";
+          td.setAttribute("data-label", field[0]);
+          td.textContent = field[1] || "-";
           tr.appendChild(td);
         });
         tbody.appendChild(tr);
@@ -344,15 +345,18 @@ function loadAdminUsers() {
 
         var tdRef = document.createElement("td");
         tdRef.className = "font-monospace small";
+        tdRef.setAttribute("data-label", "Account Reference");
         tdRef.textContent = "acct_" + String(u.accountRef || "").slice(0, 10);
         tdRef.title = "Stable pseudonymous account reference";
 
         var tdSize = document.createElement("td");
         tdSize.className = "fw-semibold";
+        tdSize.setAttribute("data-label", "Storage Used");
         tdSize.textContent = formatBytes(u.totalBytes);
 
         var tdActions = document.createElement("td");
         tdActions.className = "text-end";
+        tdActions.setAttribute("data-label", "Actions");
 
         var delBtn = document.createElement("button");
         delBtn.className = "btn btn-sm btn-outline-danger";

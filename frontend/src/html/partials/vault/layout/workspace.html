@@ -8,7 +8,7 @@
     </div>
   </div>
 
-  <div class="card shadow-sm border-0 mb-4">
+  <div class="card shadow-sm border-0 mb-4 vault-upload-panel">
     <div class="card-body py-3 px-3">
       <div
         class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3 pb-2 border-bottom"
@@ -83,42 +83,34 @@
         >
           Filter: All
         </button>
-        <ul
-          class="dropdown-menu shadow-sm border-dark"
-          aria-labelledby="filter-dropdown-btn"
-          id="filter-dropdown-menu"
-        >
+        <ul class="dropdown-menu" aria-labelledby="filter-dropdown-btn" id="filter-dropdown-menu">
           <li>
-            <button
-              class="dropdown-item py-1 filter-opt active fw-bold"
-              type="button"
-              data-filter="all"
-            >
+            <button class="dropdown-item filter-opt active fw-bold" type="button" data-filter="all">
               All File Types
             </button>
           </li>
           <li>
-            <button class="dropdown-item py-1 filter-opt" type="button" data-filter="image">
+            <button class="dropdown-item filter-opt" type="button" data-filter="image">
               Images
             </button>
           </li>
           <li>
-            <button class="dropdown-item py-1 filter-opt" type="button" data-filter="video">
+            <button class="dropdown-item filter-opt" type="button" data-filter="video">
               Videos
             </button>
           </li>
           <li>
-            <button class="dropdown-item py-1 filter-opt" type="button" data-filter="audio">
+            <button class="dropdown-item filter-opt" type="button" data-filter="audio">
               Audio
             </button>
           </li>
           <li>
-            <button class="dropdown-item py-1 filter-opt" type="button" data-filter="document">
+            <button class="dropdown-item filter-opt" type="button" data-filter="document">
               Docs/Code
             </button>
           </li>
           <li>
-            <button class="dropdown-item py-1 filter-opt" type="button" data-filter="archive">
+            <button class="dropdown-item filter-opt" type="button" data-filter="archive">
               Archives
             </button>
           </li>
@@ -135,14 +127,10 @@
         >
           Sort: Newest
         </button>
-        <ul
-          class="dropdown-menu shadow-sm border-dark"
-          aria-labelledby="sort-dropdown-btn"
-          id="sort-dropdown-menu"
-        >
+        <ul class="dropdown-menu" aria-labelledby="sort-dropdown-btn" id="sort-dropdown-menu">
           <li>
             <button
-              class="dropdown-item py-1 sort-opt active fw-bold"
+              class="dropdown-item sort-opt active fw-bold"
               type="button"
               data-sort="date-desc"
             >
@@ -150,27 +138,27 @@
             </button>
           </li>
           <li>
-            <button class="dropdown-item py-1 sort-opt" type="button" data-sort="date-asc">
+            <button class="dropdown-item sort-opt" type="button" data-sort="date-asc">
               Oldest First
             </button>
           </li>
           <li>
-            <button class="dropdown-item py-1 sort-opt" type="button" data-sort="name-asc">
+            <button class="dropdown-item sort-opt" type="button" data-sort="name-asc">
               Name (A-Z)
             </button>
           </li>
           <li>
-            <button class="dropdown-item py-1 sort-opt" type="button" data-sort="name-desc">
+            <button class="dropdown-item sort-opt" type="button" data-sort="name-desc">
               Name (Z-A)
             </button>
           </li>
           <li>
-            <button class="dropdown-item py-1 sort-opt" type="button" data-sort="size-desc">
+            <button class="dropdown-item sort-opt" type="button" data-sort="size-desc">
               Largest First
             </button>
           </li>
           <li>
-            <button class="dropdown-item py-1 sort-opt" type="button" data-sort="size-asc">
+            <button class="dropdown-item sort-opt" type="button" data-sort="size-asc">
               Smallest First
             </button>
           </li>
@@ -187,14 +175,10 @@
         >
           View
         </button>
-        <ul
-          class="dropdown-menu shadow-sm border-dark"
-          aria-labelledby="view-dropdown-btn"
-          style="min-width: 13.5rem"
-        >
+        <ul class="dropdown-menu" aria-labelledby="view-dropdown-btn" style="min-width: 13.5rem">
           <li>
             <button
-              class="dropdown-item py-1 d-flex justify-content-between align-items-center gap-3"
+              class="dropdown-item d-flex justify-content-between align-items-center gap-3"
               type="button"
               id="view-mode-list-btn"
             >
@@ -218,7 +202,7 @@
           </li>
           <li>
             <button
-              class="dropdown-item py-1 d-flex justify-content-between align-items-center gap-3"
+              class="dropdown-item d-flex justify-content-between align-items-center gap-3"
               type="button"
               id="view-mode-grid-btn"
             >
@@ -240,10 +224,10 @@
               /></span>
             </button>
           </li>
-          <li><hr class="dropdown-divider my-1" /></li>
+          <li><hr class="dropdown-divider" /></li>
           <li>
             <button
-              class="dropdown-item py-1 d-flex justify-content-between align-items-center gap-3"
+              class="dropdown-item d-flex justify-content-between align-items-center gap-3"
               type="button"
               id="view-toggle-thumbs-btn"
             >
@@ -278,46 +262,38 @@
         >
           Select
         </button>
-        <ul class="dropdown-menu shadow-sm border-dark" aria-labelledby="select-dropdown-btn">
+        <ul class="dropdown-menu" aria-labelledby="select-dropdown-btn">
           <li>
-            <button class="dropdown-item py-1" type="button" id="batch-select-all-btn">All</button>
+            <button class="dropdown-item" type="button" id="batch-select-all-btn">All</button>
           </li>
           <li>
-            <button class="dropdown-item py-1" type="button" id="batch-select-files-btn">
-              Files
-            </button>
+            <button class="dropdown-item" type="button" id="batch-select-files-btn">Files</button>
           </li>
           <li>
-            <button class="dropdown-item py-1" type="button" id="batch-select-folders-btn">
+            <button class="dropdown-item" type="button" id="batch-select-folders-btn">
               Folders
             </button>
           </li>
-          <li><hr class="dropdown-divider my-1" /></li>
+          <li><hr class="dropdown-divider" /></li>
           <li>
-            <h6 class="dropdown-header small text-muted text-uppercase mb-0 py-1">By Type</h6>
+            <h6 class="dropdown-header mb-0">By Type</h6>
           </li>
           <li>
-            <button class="dropdown-item py-1" type="button" data-select-type="audio">Audio</button>
+            <button class="dropdown-item" type="button" data-select-type="audio">Audio</button>
           </li>
           <li>
-            <button class="dropdown-item py-1" type="button" data-select-type="image">
-              Images
-            </button>
+            <button class="dropdown-item" type="button" data-select-type="image">Images</button>
           </li>
           <li>
-            <button class="dropdown-item py-1" type="button" data-select-type="video">
-              Videos
-            </button>
+            <button class="dropdown-item" type="button" data-select-type="video">Videos</button>
           </li>
           <li>
-            <button class="dropdown-item py-1" type="button" data-select-type="document">
+            <button class="dropdown-item" type="button" data-select-type="document">
               Documents
             </button>
           </li>
           <li>
-            <button class="dropdown-item py-1" type="button" data-select-type="archive">
-              Archives
-            </button>
+            <button class="dropdown-item" type="button" data-select-type="archive">Archives</button>
           </li>
         </ul>
       </div>
@@ -396,37 +372,69 @@
         >
           50 per page
         </button>
-        <ul
-          class="dropdown-menu dropdown-menu-end shadow-sm border-dark"
-          aria-labelledby="vault-page-size-btn"
-        >
+        <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="vault-page-size-btn">
           <li>
-            <button type="button" class="dropdown-item py-1" data-vault-page-size="24">
+            <button type="button" class="dropdown-item" data-vault-page-size="18">
+              18 per page
+            </button>
+          </li>
+          <li>
+            <button type="button" class="dropdown-item" data-vault-page-size="24">
               24 per page
             </button>
           </li>
           <li>
-            <button type="button" class="dropdown-item py-1" data-vault-page-size="48">
+            <button type="button" class="dropdown-item" data-vault-page-size="48">
               48 per page
             </button>
           </li>
           <li>
-            <button type="button" class="dropdown-item py-1" data-vault-page-size="25" data-list-page-size>
+            <button
+              type="button"
+              class="dropdown-item"
+              data-vault-page-size="10"
+              data-list-page-size
+            >
+              10 per page
+            </button>
+          </li>
+          <li>
+            <button
+              type="button"
+              class="dropdown-item"
+              data-vault-page-size="25"
+              data-list-page-size
+            >
               25 per page
             </button>
           </li>
           <li>
-            <button type="button" class="dropdown-item py-1" data-vault-page-size="50" data-list-page-size>
+            <button
+              type="button"
+              class="dropdown-item"
+              data-vault-page-size="50"
+              data-list-page-size
+            >
               50 per page
             </button>
           </li>
           <li>
-            <button type="button" class="dropdown-item py-1" data-vault-page-size="100" data-list-page-size>
+            <button
+              type="button"
+              class="dropdown-item"
+              data-vault-page-size="100"
+              data-list-page-size
+            >
               100 per page
             </button>
           </li>
           <li>
-            <button type="button" class="dropdown-item py-1" data-vault-page-size="200" data-list-page-size>
+            <button
+              type="button"
+              class="dropdown-item"
+              data-vault-page-size="200"
+              data-list-page-size
+            >
               200 per page
             </button>
           </li>

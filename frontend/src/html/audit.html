@@ -2,7 +2,7 @@
 <html lang="en">
   <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <title>PinkBox &lt;3 | Audit Log</title>
     <link rel="icon" type="image/png" href="/src/assets/icons/heart.png" />
     <link rel="apple-touch-icon" href="/src/assets/icons/heart.png" />
@@ -10,6 +10,7 @@
     <meta name="description" content="PinkBox System Audit Log" />
     <link rel="stylesheet" href="/src/css/bootstrap.min.css" />
     <link rel="stylesheet" href="/src/css/style.css" />
+    <link rel="stylesheet" href="/src/css/mobile.css" />
     <style>
       .audit-stat-card {
         background: #ffffff;
@@ -42,7 +43,7 @@
     </style>
   </head>
 
-  <body class="bg-light">
+  <body class="bg-light page-audit">
     <nav
       class="navbar navbar-expand navbar-light bg-white mb-3 shadow-sm border-bottom border-dark"
     >
@@ -106,12 +107,14 @@
           <div class="dropdown">
             <button
               type="button"
-              class="btn btn-sm btn-white border border-dark fw-bold shadow-sm dropdown-toggle"
+              class="toolbar-btn dropdown-toggle"
+              id="audit-export-dropdown-btn"
               data-bs-toggle="dropdown"
+              aria-expanded="false"
             >
               Export
             </button>
-            <ul class="dropdown-menu dropdown-menu-end">
+            <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="audit-export-dropdown-btn">
               <li>
                 <button class="dropdown-item" type="button" id="audit-export-csv-btn">CSV</button>
               </li>
@@ -184,13 +187,10 @@
             >
               All Categories
             </button>
-            <ul
-              class="dropdown-menu shadow-sm border-dark"
-              aria-labelledby="audit-category-dropdown"
-            >
+            <ul class="dropdown-menu" aria-labelledby="audit-category-dropdown">
               <li>
                 <button
-                  class="dropdown-item py-1"
+                  class="dropdown-item"
                   type="button"
                   data-audit-select="audit-category-filter"
                   data-value="all"
@@ -200,7 +200,7 @@
               </li>
               <li>
                 <button
-                  class="dropdown-item py-1"
+                  class="dropdown-item"
                   type="button"
                   data-audit-select="audit-category-filter"
                   data-value="uploads"
@@ -210,7 +210,7 @@
               </li>
               <li>
                 <button
-                  class="dropdown-item py-1"
+                  class="dropdown-item"
                   type="button"
                   data-audit-select="audit-category-filter"
                   data-value="downloads"
@@ -220,7 +220,7 @@
               </li>
               <li>
                 <button
-                  class="dropdown-item py-1"
+                  class="dropdown-item"
                   type="button"
                   data-audit-select="audit-category-filter"
                   data-value="shares"
@@ -230,7 +230,7 @@
               </li>
               <li>
                 <button
-                  class="dropdown-item py-1"
+                  class="dropdown-item"
                   type="button"
                   data-audit-select="audit-category-filter"
                   data-value="deletes"
@@ -240,7 +240,7 @@
               </li>
               <li>
                 <button
-                  class="dropdown-item py-1"
+                  class="dropdown-item"
                   type="button"
                   data-audit-select="audit-category-filter"
                   data-value="folders"
@@ -250,7 +250,7 @@
               </li>
               <li>
                 <button
-                  class="dropdown-item py-1"
+                  class="dropdown-item"
                   type="button"
                   data-audit-select="audit-category-filter"
                   data-value="auth"
@@ -279,13 +279,10 @@
             >
               All Outcomes
             </button>
-            <ul
-              class="dropdown-menu shadow-sm border-dark"
-              aria-labelledby="audit-outcome-dropdown"
-            >
+            <ul class="dropdown-menu" aria-labelledby="audit-outcome-dropdown">
               <li>
                 <button
-                  class="dropdown-item py-1"
+                  class="dropdown-item"
                   type="button"
                   data-audit-select="audit-outcome-filter"
                   data-value="all"
@@ -295,7 +292,7 @@
               </li>
               <li>
                 <button
-                  class="dropdown-item py-1"
+                  class="dropdown-item"
                   type="button"
                   data-audit-select="audit-outcome-filter"
                   data-value="SUCCESS"
@@ -305,7 +302,7 @@
               </li>
               <li>
                 <button
-                  class="dropdown-item py-1"
+                  class="dropdown-item"
                   type="button"
                   data-audit-select="audit-outcome-filter"
                   data-value="FAILURE"
@@ -330,13 +327,10 @@
             >
               50 per page
             </button>
-            <ul
-              class="dropdown-menu dropdown-menu-end shadow-sm border-dark"
-              aria-labelledby="audit-limit-dropdown"
-            >
+            <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="audit-limit-dropdown">
               <li>
                 <button
-                  class="dropdown-item py-1"
+                  class="dropdown-item"
                   type="button"
                   data-audit-select="audit-limit-select"
                   data-value="25"
@@ -346,7 +340,7 @@
               </li>
               <li>
                 <button
-                  class="dropdown-item py-1"
+                  class="dropdown-item"
                   type="button"
                   data-audit-select="audit-limit-select"
                   data-value="50"
@@ -356,7 +350,7 @@
               </li>
               <li>
                 <button
-                  class="dropdown-item py-1"
+                  class="dropdown-item"
                   type="button"
                   data-audit-select="audit-limit-select"
                   data-value="100"
@@ -366,7 +360,7 @@
               </li>
               <li>
                 <button
-                  class="dropdown-item py-1"
+                  class="dropdown-item"
                   type="button"
                   data-audit-select="audit-limit-select"
                   data-value="200"

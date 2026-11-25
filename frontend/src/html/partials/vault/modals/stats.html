@@ -47,7 +47,46 @@
           </div>
         </div>
 
-        <div style="overflow-x: auto">
+        <div class="shares-mobile-sort dropdown mb-2">
+          <button
+            type="button"
+            id="all-shares-sort-mobile"
+            class="toolbar-btn dropdown-toggle w-100"
+            data-bs-toggle="dropdown"
+            aria-expanded="false"
+            aria-label="Sort share links"
+          >
+            Sort: Default order
+          </button>
+          <ul class="dropdown-menu" aria-labelledby="all-shares-sort-mobile">
+            <li>
+              <button type="button" class="dropdown-item active" data-share-sort="">
+                Sequential
+              </button>
+            </li>
+            <li>
+              <button type="button" class="dropdown-item" data-share-sort="views_desc">
+                Views
+              </button>
+            </li>
+            <li>
+              <button type="button" class="dropdown-item" data-share-sort="downloads_desc">
+                Downloads
+              </button>
+            </li>
+            <li>
+              <button type="button" class="dropdown-item" data-share-sort="saves_desc">
+                Saves
+              </button>
+            </li>
+            <li>
+              <button type="button" class="dropdown-item" data-share-sort="expires_asc">
+                Expiry
+              </button>
+            </li>
+          </ul>
+        </div>
+        <div class="share-stats-list-wrap">
           <div id="all-shares-list">
             <div class="text-muted small text-center py-4">Loading active shares...</div>
           </div>
@@ -90,26 +129,26 @@
                 25 per page
               </button>
               <ul
-                class="dropdown-menu dropdown-menu-end shadow-sm border-dark"
+                class="dropdown-menu dropdown-menu-end"
                 aria-labelledby="all-shares-page-size-btn"
               >
                 <li>
-                  <button type="button" class="dropdown-item py-1" data-shares-page-size="10">
+                  <button type="button" class="dropdown-item" data-shares-page-size="10">
                     10 per page
                   </button>
                 </li>
                 <li>
-                  <button type="button" class="dropdown-item py-1" data-shares-page-size="25">
+                  <button type="button" class="dropdown-item" data-shares-page-size="25">
                     25 per page
                   </button>
                 </li>
                 <li>
-                  <button type="button" class="dropdown-item py-1" data-shares-page-size="50">
+                  <button type="button" class="dropdown-item" data-shares-page-size="50">
                     50 per page
                   </button>
                 </li>
                 <li>
-                  <button type="button" class="dropdown-item py-1" data-shares-page-size="100">
+                  <button type="button" class="dropdown-item" data-shares-page-size="100">
                     100 per page
                   </button>
                 </li>

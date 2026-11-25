@@ -9,9 +9,14 @@ var FOLDER_PALETTE = [
   { name: "Soft Coral", hex: "#fee2e2" },
 ];
 
+function setFolderColorInMemory(folderId, color) {
+  allLoadedFolders.forEach(function (folder) {
+    if (String(folder.id) === String(folderId)) folder.color = color;
+  });
+}
+
 function openFolderColorModal(folder) {
   closeAllMenus();
-  document.getElementById("color-folder-name").textContent = folder.name;
   var container = document.getElementById("folder-color-palette");
   container.innerHTML = "";
 
@@ -28,14 +33,10 @@ function openFolderColorModal(folder) {
 
     btn.onclick = function () {
       var newHex = c.hex;
+      var previousColor = folder.color || "#ffffff";
       folder.color = newHex;
-      var found = allLoadedFolders.find(function (f) {
-        return f.id === folder.id;
-      });
-      if (found) found.color = newHex;
-
+      setFolderColorInMemory(folder.id, newHex);
       renderList();
-
       folderColorModal.hide();
 
       api("/folders/" + folder.id + "/color", {
@@ -49,14 +50,14 @@ function openFolderColorModal(folder) {
         })
         .then(function (updated) {
           if (updated && updated.color) {
-            folder.color = updated.color;
-            if (found) found.color = updated.color;
+            setFolderColorInMemory(folder.id, updated.color);
             renderList();
           }
         })
         .catch(function (err) {
+          setFolderColorInMemory(folder.id, previousColor);
+          renderList();
           showMsg("Failed to update folder colour: " + (err.message || err), "error");
-          loadVault();
         });
     };
 
@@ -380,12 +381,12 @@ function loadAllSharesStats() {
           "</ul></details>"
         );
       }
-      function usageCell(count, limit) {
+      function usageCell(count, limit, label) {
         var content = '<span class="font-monospace fw-bold">' + (count || 0) + "</span>";
         if (limit) {
           content += '<small class="text-muted d-block">of ' + limit + "</small>";
         }
-        return '<td class="text-center">' + content + "</td>";
+        return '<td class="text-center" data-label="' + label + '">' + content + "</td>";
       }
 
       d.shares.forEach(function (s) {
@@ -395,12 +396,12 @@ function loadAllSharesStats() {
         var permCls = s.access_type === "edit" ? "bg-warning" : "bg-secondary";
         var visCls = s.is_public ? "bg-info" : "badge-private";
         var expiryTxt = s.expires_at ? formatDate(s.expires_at) : "-";
-        var expiryStyle = s.expires_at ? "" : ' style="color:#aaa;"';
+        var expiryStyle = s.expires_at ? "" : ' class="text-muted"';
         tableHtml +=
           '<tr class="share-stats-row" data-share-id="' +
           s.id +
           '">' +
-          '<td class="share-stats-name" title="' +
+          '<td class="share-stats-name" data-label="File / Collection" title="' +
           escapeHtml(labelTitle) +
           '">' +
           '<a href="' +
@@ -410,7 +411,7 @@ function loadAllSharesStats() {
           "</a>" +
           bundleFilesDetails(s) +
           "</td>" +
-          '<td style="white-space:nowrap;"><span class="badge ' +
+          '<td data-label="Type" style="white-space:nowrap;"><span class="badge ' +
           permCls +
           '" style="font-size:0.6rem;">' +
           permLabel +
@@ -426,17 +427,17 @@ function loadAllSharesStats() {
             ? ' <span class="badge bg-dark" style="font-size:0.6rem;">Password</span>'
             : "") +
           "</td>" +
-          usageCell(s.views_count, s.max_views) +
-          usageCell(s.downloads_count, s.max_downloads) +
-          '<td class="text-center font-monospace fw-bold">' +
+          usageCell(s.views_count, s.max_views, "Views") +
+          usageCell(s.downloads_count, s.max_downloads, "Downloads") +
+          '<td class="text-center font-monospace fw-bold" data-label="Saves">' +
           (s.saves_count || 0) +
           "</td>" +
-          "<td" +
+          '<td data-label="Expires"' +
           expiryStyle +
           ' style="font-size:0.72rem;white-space:nowrap;">' +
           escapeHtml(expiryTxt) +
           "</td>" +
-          '<td style="white-space:nowrap;">' +
+          '<td data-label="Actions" style="white-space:nowrap;">' +
           '<button class="btn btn-sm py-0 px-1 copy-stats-link-btn me-1" data-url="' +
           escapeHtml(shareUrl) +
           '" style="font-size:0.68rem;">Copy</button>' +
@@ -549,12 +550,12 @@ function loadAllSharesStats() {
             var permCls = s.access_type === "edit" ? "bg-warning" : "bg-secondary";
             var visCls = s.is_public ? "bg-info" : "badge-private";
             var expiryTxt = s.expires_at ? formatDate(s.expires_at) : "\u2014";
-            var expiryStyle = s.expires_at ? "" : ' style="color:#aaa;"';
+            var expiryStyle = s.expires_at ? "" : ' class="text-muted"';
             return (
               '<tr class="share-stats-row" data-share-id="' +
               s.id +
               '">' +
-              '<td class="share-stats-name" title="' +
+              '<td class="share-stats-name" data-label="File / Collection" title="' +
               escapeHtml(labelTitle) +
               '"><a href="' +
               escapeHtml(shareUrl) +
@@ -563,7 +564,7 @@ function loadAllSharesStats() {
               "</a>" +
               bundleFilesDetails(s) +
               "</td>" +
-              '<td style="white-space:nowrap;"><span class="badge ' +
+              '<td data-label="Type" style="white-space:nowrap;"><span class="badge ' +
               permCls +
               '" style="font-size:0.6rem;">' +
               '<span class="share-stats-desktop-label">' +
@@ -582,17 +583,17 @@ function loadAllSharesStats() {
                 ? ' <span class="badge bg-primary border border-dark" style="font-size:0.6rem;"><span class="share-stats-desktop-label">Bundle</span><span class="share-stats-mobile-label">Bund</span></span>'
                 : "") +
               "</td>" +
-              usageCell(s.views_count, s.max_views) +
-              usageCell(s.downloads_count, s.max_downloads) +
-              '<td class="text-center font-monospace fw-bold">' +
+              usageCell(s.views_count, s.max_views, "Views") +
+              usageCell(s.downloads_count, s.max_downloads, "Downloads") +
+              '<td class="text-center font-monospace fw-bold" data-label="Saves">' +
               (s.saves_count || 0) +
               "</td>" +
-              "<td" +
+              '<td data-label="Expires"' +
               expiryStyle +
               ' style="font-size:0.72rem;white-space:nowrap;">' +
               escapeHtml(expiryTxt) +
               "</td>" +
-              '<td style="white-space:nowrap;"><button class="btn btn-sm py-0 px-1 copy-stats-link-btn me-1" data-url="' +
+              '<td data-label="Actions" style="white-space:nowrap;"><button class="btn btn-sm py-0 px-1 copy-stats-link-btn me-1" data-url="' +
               escapeHtml(shareUrl) +
               '" style="font-size:0.68rem;">Copy</button>' +
               '<button class="btn btn-sm py-0 px-1 revoke-stats-btn" data-id="' +
@@ -646,6 +647,27 @@ function loadAllSharesStats() {
           } else {
             sortCol = col;
             sortAsc = false;
+          }
+          allSharesStatsPage = 1;
+          renderSortedRows();
+        };
+      });
+      var mobileSort = document.getElementById("all-shares-sort-mobile");
+      document.querySelectorAll("[data-share-sort]").forEach(function (option) {
+        option.onclick = function () {
+          var selectedSort = option.getAttribute("data-share-sort") || "";
+          if (mobileSort) {
+            mobileSort.textContent = "Sort: " + option.textContent.trim();
+          }
+          document.querySelectorAll("[data-share-sort]").forEach(function (candidate) {
+            candidate.classList.toggle("active", candidate === option);
+          });
+          if (!selectedSort) {
+            sortCol = null;
+          } else {
+            var sortParts = selectedSort.split("_");
+            sortCol = sortParts[0] === "expires" ? "expires_at" : sortParts[0] + "_count";
+            sortAsc = sortParts[1] === "asc";
           }
           allSharesStatsPage = 1;
           renderSortedRows();

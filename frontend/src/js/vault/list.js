@@ -8,8 +8,8 @@ var vaultPageSize = parseInt(
 if (!vaultPageSize && currentViewMode !== "grid") {
   vaultPageSize = parseInt(localStorage.getItem("vault_page_size"), 10);
 }
-if (currentViewMode === "grid" && [24, 48].indexOf(vaultPageSize) === -1) vaultPageSize = 48;
-if (currentViewMode !== "grid" && [25, 50, 100, 200].indexOf(vaultPageSize) === -1)
+if (currentViewMode === "grid" && [18, 24, 48].indexOf(vaultPageSize) === -1) vaultPageSize = 48;
+if (currentViewMode !== "grid" && [10, 25, 50, 100, 200].indexOf(vaultPageSize) === -1)
   vaultPageSize = 50;
 
 function updateVaultPageSizeOptions() {
@@ -17,8 +17,8 @@ function updateVaultPageSizeOptions() {
     var size = parseInt(option.getAttribute("data-vault-page-size"), 10);
     var visible =
       currentViewMode === "grid"
-        ? size === 24 || size === 48
-        : [25, 50, 100, 200].indexOf(size) !== -1;
+        ? [18, 24, 48].indexOf(size) !== -1
+        : [10, 25, 50, 100, 200].indexOf(size) !== -1;
     option.closest("li").classList.toggle("d-none", !visible);
   });
 }
@@ -60,7 +60,7 @@ if (vaultNextPageBtn)
 document.querySelectorAll("[data-vault-page-size]").forEach(function (option) {
   option.onclick = function () {
     var selectedSize = parseInt(option.getAttribute("data-vault-page-size"), 10);
-    var validSizes = currentViewMode === "grid" ? [24, 48] : [25, 50, 100, 200];
+    var validSizes = currentViewMode === "grid" ? [18, 24, 48] : [10, 25, 50, 100, 200];
     if (validSizes.indexOf(selectedSize) === -1) return;
     vaultPageSize = selectedSize;
     vaultCurrentPage = 1;

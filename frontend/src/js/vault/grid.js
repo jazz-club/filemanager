@@ -1,3 +1,17 @@
+function applyFolderColor(element, color) {
+  if (!element) return;
+  var normalized = String(color || "#ffffff").toLowerCase();
+  var hasCustomColor = normalized !== "#ffffff" && normalized !== "#fff";
+  element.classList.toggle("has-custom-color", hasCustomColor);
+  if (hasCustomColor) {
+    element.style.setProperty("--folder-custom-bg", color);
+    element.style.backgroundColor = color;
+  } else {
+    element.style.removeProperty("--folder-custom-bg");
+    element.style.removeProperty("background-color");
+  }
+}
+
 function renderGrid(filteredFolders, filteredFiles, query, accordion, existingNodes) {
   var gridContainer = document.createElement("div");
   gridContainer.className = "row g-2 p-2 w-100 m-0";
@@ -10,6 +24,7 @@ function renderGrid(filteredFolders, filteredFiles, query, accordion, existingNo
         var existingCard = existingCol.querySelector(".grid-item-card");
         if (existingCard) {
           existingCard.classList.toggle("file-row-selected", isFolderSelected(folder.id));
+          applyFolderColor(existingCard, folder.color);
         }
         var chk = existingCol.querySelector(".form-check-input");
         if (chk) chk.checked = isFolderSelected(folder.id);
@@ -29,11 +44,7 @@ function renderGrid(filteredFolders, filteredFiles, query, accordion, existingNo
       "grid-item-card p-2 " + (isFolderSelected(folder.id) ? "file-row-selected" : "");
     card.setAttribute("data-folder-id", folder.id);
     card.setAttribute("data-folder-name", folder.name);
-    if (folder.color && folder.color !== "#ffffff" && folder.color !== "#fff") {
-      card.classList.add("has-custom-color");
-      card.style.setProperty("--folder-custom-bg", folder.color);
-      card.style.backgroundColor = folder.color;
-    }
+    applyFolderColor(card, folder.color);
     card.onclick = function (e) {
       if (selectedFileIds.size > 0 || selectedFolderIds.size > 0) {
         if (
@@ -63,16 +74,20 @@ function renderGrid(filteredFolders, filteredFiles, query, accordion, existingNo
     var actions = document.createElement("div");
     actions.className = "dropdown";
     actions.innerHTML =
-      '<button class="btn btn-sm grid-card-action-btn folder-options-btn" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Folder options" title="Folder options"><span class="folder-options-label">Options</span><span aria-hidden="true">▾</span></button>' +
-      '<ul class="dropdown-menu dropdown-menu-end shadow-sm border-dark">' +
-      '<li><a class="dropdown-item folder-info py-1" href="#">Folder Information</a></li>' +
-      '<li><a class="dropdown-item share-folder py-1" href="#">Share folder</a></li>' +
-      '<li><a class="dropdown-item rename-folder py-1" href="#">Rename</a></li>' +
-      '<li><a class="dropdown-item color-folder py-1" href="#">Change Folder Colour</a></li>' +
-      '<li><a class="dropdown-item move-folder py-1" href="#">Move</a></li>' +
-      '<li><a class="dropdown-item download-folder py-1" href="#">Download folder</a></li>' +
-      '<li><hr class="dropdown-divider my-1"></li>' +
-      '<li><a class="dropdown-item text-danger delete-folder py-1" href="#">Delete</a></li>' +
+      '<button id="folder-options-grid-' +
+      folder.id +
+      '" class="btn btn-sm grid-card-action-btn folder-options-btn" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Folder options" title="Folder options"><span class="folder-options-chevron" aria-hidden="true">▾</span></button>' +
+      '<ul class="dropdown-menu dropdown-menu-end" aria-labelledby="folder-options-grid-' +
+      folder.id +
+      '">' +
+      '<li><a class="dropdown-item folder-info" href="#">Folder Information</a></li>' +
+      '<li><a class="dropdown-item share-folder" href="#">Share folder</a></li>' +
+      '<li><a class="dropdown-item rename-folder" href="#">Rename</a></li>' +
+      '<li><a class="dropdown-item color-folder" href="#">Change Folder Colour</a></li>' +
+      '<li><a class="dropdown-item move-folder" href="#">Move</a></li>' +
+      '<li><a class="dropdown-item download-folder" href="#">Download folder</a></li>' +
+      '<li><hr class="dropdown-divider"></li>' +
+      '<li><a class="dropdown-item text-danger delete-folder" href="#">Delete</a></li>' +
       "</ul>";
 
     actions.addEventListener("show.bs.dropdown", function () {
@@ -374,6 +389,7 @@ function renderGrid(filteredFolders, filteredFiles, query, accordion, existingNo
     nameDiv.title = file.original_name;
     nameDiv.innerHTML = highlightMatch(file.original_name, query);
     nameDiv.style.cursor = "pointer";
+
     nameDiv.onclick = function () {
       if (selectedFileIds.size > 0 || selectedFolderIds.size > 0) {
         toggleFileSelection(file.id);
@@ -426,6 +442,7 @@ function renderListView(filteredFolders, filteredFiles, query, accordion, existi
         if (chk) chk.checked = isFolderSelected(folder.id);
         var nameSpan = existingItem.querySelector(".fw-bold.text-truncate");
         if (nameSpan) nameSpan.innerHTML = highlightMatch(folder.name, query);
+        applyFolderColor(existingItem, folder.color);
         accordion.appendChild(existingItem);
         return;
       }
@@ -438,11 +455,7 @@ function renderListView(filteredFolders, filteredFiles, query, accordion, existi
     folderItem.setAttribute("data-folder-id", folder.id);
     folderItem.setAttribute("data-folder-name", folder.name);
     folderItem.setAttribute("data-item-key", "folder-" + folder.id);
-    if (folder.color && folder.color !== "#ffffff" && folder.color !== "#fff") {
-      folderItem.classList.add("has-custom-color");
-      folderItem.style.setProperty("--folder-custom-bg", folder.color);
-      folderItem.style.backgroundColor = folder.color;
-    }
+    applyFolderColor(folderItem, folder.color);
 
     folderItem.ondragover = function (e) {
       e.preventDefault();
@@ -516,8 +529,12 @@ function renderListView(filteredFolders, filteredFiles, query, accordion, existi
     var actions = document.createElement("div");
     actions.className = "dropdown";
     actions.innerHTML =
-      '<button class="btn btn-sm btn-white border border-dark py-0 px-2 fw-bold folder-options-btn" data-bs-toggle="dropdown" data-bs-display="static" aria-expanded="false" aria-label="Folder options" title="Folder options"><span class="folder-options-label">Options</span><span aria-hidden="true">▾</span></button>' +
-      '<ul class="dropdown-menu dropdown-menu-end shadow-sm border-dark">' +
+      '<button id="folder-options-list-' +
+      folder.id +
+      '" class="btn btn-sm btn-white border border-dark py-0 px-2 fw-bold folder-options-btn" data-bs-toggle="dropdown" data-bs-display="static" aria-expanded="false" aria-label="Folder options" title="Folder options"><span class="folder-options-chevron" aria-hidden="true">▾</span></button>' +
+      '<ul class="dropdown-menu dropdown-menu-end" aria-labelledby="folder-options-list-' +
+      folder.id +
+      '">' +
       '<li><a class="dropdown-item folder-info" href="#">Folder Information</a></li>' +
       '<li><a class="dropdown-item share-folder" href="#">Share folder</a></li>' +
       '<li><a class="dropdown-item rename-folder" href="#">Rename</a></li>' +
@@ -720,6 +737,7 @@ function renderListView(filteredFolders, filteredFiles, query, accordion, existi
     header.appendChild(selectChk);
     header.appendChild(btn);
     header.appendChild(rowActions);
+    item.appendChild(header);
 
     rowActions.querySelector(".list-header-preview-btn").onclick = function (e) {
       e.preventDefault();
@@ -799,7 +817,6 @@ function renderListView(filteredFolders, filteredFiles, query, accordion, existi
     };
 
     collapse.appendChild(body);
-    item.appendChild(header);
     item.appendChild(collapse);
     accordion.appendChild(item);
 

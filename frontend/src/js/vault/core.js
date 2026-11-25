@@ -1,5 +1,10 @@
-var currentFolderId = null;
-var currentFolderName = "/root";
+var initialFolderId = (function () {
+  var value = new URLSearchParams(window.location.search).get("folderId");
+  var parsed = Number(value);
+  return value && Number.isSafeInteger(parsed) && parsed > 0 ? parsed : null;
+})();
+var currentFolderId = initialFolderId;
+var currentFolderName = currentFolderId ? "Folder" : "/root";
 var allLoadedFiles = [];
 var allLoadedFolders = [];
 var selectedFileIds = new Set();

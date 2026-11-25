@@ -2,7 +2,7 @@
 <html lang="en">
   <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <title>PinkBox &lt;3 | Admin Panel</title>
     <link rel="icon" type="image/png" href="/src/assets/icons/heart.png" />
     <link rel="apple-touch-icon" href="/src/assets/icons/heart.png" />
@@ -18,9 +18,10 @@
     <meta name="twitter:image" content="/src/assets/icons/heart.png" />
     <link rel="stylesheet" href="/src/css/bootstrap.min.css" />
     <link rel="stylesheet" href="/src/css/style.css" />
+    <link rel="stylesheet" href="/src/css/mobile.css" />
   </head>
 
-  <body>
+  <body class="page-admin">
     <nav class="navbar navbar-expand navbar-light bg-white mb-4 shadow-sm">
       <div class="container-lg">
         <a class="navbar-brand fw-bold d-flex align-items-center gap-2">
@@ -173,30 +174,19 @@
               >
                 All Accounts
               </button>
-              <ul
-                class="dropdown-menu shadow-sm border-dark"
-                aria-labelledby="admin-account-filter-btn"
-              >
+              <ul class="dropdown-menu" aria-labelledby="admin-account-filter-btn">
                 <li>
-                  <button type="button" class="dropdown-item py-1" data-admin-account-filter="all">
+                  <button type="button" class="dropdown-item" data-admin-account-filter="all">
                     All Accounts
                   </button>
                 </li>
                 <li>
-                  <button
-                    type="button"
-                    class="dropdown-item py-1"
-                    data-admin-account-filter="stored"
-                  >
+                  <button type="button" class="dropdown-item" data-admin-account-filter="stored">
                     Has Storage
                   </button>
                 </li>
                 <li>
-                  <button
-                    type="button"
-                    class="dropdown-item py-1"
-                    data-admin-account-filter="empty"
-                  >
+                  <button type="button" class="dropdown-item" data-admin-account-filter="empty">
                     No Storage
                   </button>
                 </li>
@@ -212,27 +202,24 @@
               >
                 25 per page
               </button>
-              <ul
-                class="dropdown-menu dropdown-menu-end shadow-sm border-dark"
-                aria-labelledby="admin-account-limit-btn"
-              >
+              <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="admin-account-limit-btn">
                 <li>
-                  <button type="button" class="dropdown-item py-1" data-admin-account-limit="10">
+                  <button type="button" class="dropdown-item" data-admin-account-limit="10">
                     10 per page
                   </button>
                 </li>
                 <li>
-                  <button type="button" class="dropdown-item py-1" data-admin-account-limit="25">
+                  <button type="button" class="dropdown-item" data-admin-account-limit="25">
                     25 per page
                   </button>
                 </li>
                 <li>
-                  <button type="button" class="dropdown-item py-1" data-admin-account-limit="50">
+                  <button type="button" class="dropdown-item" data-admin-account-limit="50">
                     50 per page
                   </button>
                 </li>
                 <li>
-                  <button type="button" class="dropdown-item py-1" data-admin-account-limit="100">
+                  <button type="button" class="dropdown-item" data-admin-account-limit="100">
                     100 per page
                   </button>
                 </li>
@@ -304,48 +291,29 @@
               >
                 All Activity
               </button>
-              <ul
-                class="dropdown-menu shadow-sm border-dark"
-                aria-labelledby="admin-audit-category-btn"
-              >
+              <ul class="dropdown-menu" aria-labelledby="admin-audit-category-btn">
                 <li>
-                  <button type="button" class="dropdown-item py-1" data-admin-audit-category="all">
+                  <button type="button" class="dropdown-item" data-admin-audit-category="all">
                     All Activity
                   </button>
                 </li>
                 <li>
-                  <button
-                    type="button"
-                    class="dropdown-item py-1"
-                    data-admin-audit-category="security"
-                  >
+                  <button type="button" class="dropdown-item" data-admin-audit-category="security">
                     Security
                   </button>
                 </li>
                 <li>
-                  <button
-                    type="button"
-                    class="dropdown-item py-1"
-                    data-admin-audit-category="accounts"
-                  >
+                  <button type="button" class="dropdown-item" data-admin-audit-category="accounts">
                     Account Changes
                   </button>
                 </li>
                 <li>
-                  <button
-                    type="button"
-                    class="dropdown-item py-1"
-                    data-admin-audit-category="files"
-                  >
+                  <button type="button" class="dropdown-item" data-admin-audit-category="files">
                     Files &amp; Folders
                   </button>
                 </li>
                 <li>
-                  <button
-                    type="button"
-                    class="dropdown-item py-1"
-                    data-admin-audit-category="shares"
-                  >
+                  <button type="button" class="dropdown-item" data-admin-audit-category="shares">
                     Shares
                   </button>
                 </li>
@@ -361,39 +329,24 @@
               >
                 All Outcomes
               </button>
-              <ul
-                class="dropdown-menu shadow-sm border-dark"
-                aria-labelledby="admin-audit-outcome-btn"
-              >
+              <ul class="dropdown-menu" aria-labelledby="admin-audit-outcome-btn">
                 <li>
-                  <button type="button" class="dropdown-item py-1" data-admin-audit-outcome="all">
+                  <button type="button" class="dropdown-item" data-admin-audit-outcome="all">
                     All Outcomes
                   </button>
                 </li>
                 <li>
-                  <button
-                    type="button"
-                    class="dropdown-item py-1"
-                    data-admin-audit-outcome="SUCCESS"
-                  >
+                  <button type="button" class="dropdown-item" data-admin-audit-outcome="SUCCESS">
                     Success
                   </button>
                 </li>
                 <li>
-                  <button
-                    type="button"
-                    class="dropdown-item py-1"
-                    data-admin-audit-outcome="FAILURE"
-                  >
+                  <button type="button" class="dropdown-item" data-admin-audit-outcome="FAILURE">
                     Failure
                   </button>
                 </li>
                 <li>
-                  <button
-                    type="button"
-                    class="dropdown-item py-1"
-                    data-admin-audit-outcome="BLOCKED"
-                  >
+                  <button type="button" class="dropdown-item" data-admin-audit-outcome="BLOCKED">
                     Blocked
                   </button>
                 </li>
@@ -409,27 +362,24 @@
               >
                 25 per page
               </button>
-              <ul
-                class="dropdown-menu dropdown-menu-end shadow-sm border-dark"
-                aria-labelledby="admin-audit-limit-btn"
-              >
+              <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="admin-audit-limit-btn">
                 <li>
-                  <button type="button" class="dropdown-item py-1" data-admin-audit-limit="10">
+                  <button type="button" class="dropdown-item" data-admin-audit-limit="10">
                     10 per page
                   </button>
                 </li>
                 <li>
-                  <button type="button" class="dropdown-item py-1" data-admin-audit-limit="25">
+                  <button type="button" class="dropdown-item" data-admin-audit-limit="25">
                     25 per page
                   </button>
                 </li>
                 <li>
-                  <button type="button" class="dropdown-item py-1" data-admin-audit-limit="50">
+                  <button type="button" class="dropdown-item" data-admin-audit-limit="50">
                     50 per page
                   </button>
                 </li>
                 <li>
-                  <button type="button" class="dropdown-item py-1" data-admin-audit-limit="100">
+                  <button type="button" class="dropdown-item" data-admin-audit-limit="100">
                     100 per page
                   </button>
                 </li>
@@ -503,7 +453,6 @@
             <p class="text-danger fw-bold mb-2">Delete this account?</p>
           </div>
           <div class="modal-footer">
-            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
             <button type="button" class="btn btn-danger" id="confirm-admin-delete-btn">
               fuck em fr?
             </button>

@@ -165,6 +165,32 @@ function downloadSelectionAsZip(fileIds, folderIds) {
   });
 }
 
+function readVaultFolderFromUrl() {
+  var value = new URLSearchParams(window.location.search).get("folderId");
+  var parsed = Number(value);
+  return value && Number.isSafeInteger(parsed) && parsed > 0 ? parsed : null;
+}
+
+function updateVaultFolderUrl(folderId, replace) {
+  var url = new URL(window.location.href);
+  if (folderId === null || folderId === undefined) url.searchParams.delete("folderId");
+  else url.searchParams.set("folderId", String(folderId));
+  var state = Object.assign({}, window.history.state || {}, { vaultFolderId: folderId || null });
+  var relativeUrl = url.pathname + url.search + url.hash;
+  if (replace) window.history.replaceState(state, "", relativeUrl);
+  else window.history.pushState(state, "", relativeUrl);
+}
+
+updateVaultFolderUrl(currentFolderId, true);
+
+window.addEventListener("popstate", function () {
+  var folderId = readVaultFolderFromUrl();
+  if (String(folderId || "") === String(currentFolderId || "")) return;
+  currentFolderId = folderId;
+  currentFolderName = folderId ? "Folder" : "/root";
+  loadVault();
+});
+
 function loadVault(options) {
   options = options || {};
   if (Array.isArray(options.revealFileIds) && options.revealFileIds.length) {
@@ -179,8 +205,9 @@ function loadVault(options) {
   updateBatchBar();
   loadBreadcrumbs();
 
-  var folderQuery = currentFolderId ? "?parentId=" + currentFolderId : "";
-  var fileQuery = currentFolderId ? "?folderId=" + currentFolderId : "";
+  var requestedFolderId = currentFolderId;
+  var folderQuery = requestedFolderId ? "?parentId=" + requestedFolderId : "";
+  var fileQuery = requestedFolderId ? "?folderId=" + requestedFolderId : "";
 
   Promise.all([
     api("/folders" + folderQuery).then(function (r) {
@@ -191,6 +218,7 @@ function loadVault(options) {
     }),
   ])
     .then(function (results) {
+      if (String(currentFolderId || "") !== String(requestedFolderId || "")) return;
       allLoadedFolders = results[0] || [];
       allLoadedFiles = results[1] || [];
 
@@ -213,6 +241,7 @@ function loadVault(options) {
 function loadBreadcrumbs() {
   var bcList = document.getElementById("breadcrumb-list");
   if (!bcList) return;
+  var requestedFolderId = currentFolderId;
   bcList.innerHTML = "";
 
   var rootBtn = document.createElement("button");
@@ -227,13 +256,15 @@ function loadBreadcrumbs() {
   };
   bcList.appendChild(rootBtn);
 
-  if (!currentFolderId) return;
+  if (!requestedFolderId) return;
 
-  api("/folders/" + currentFolderId + "/breadcrumbs")
+  api("/folders/" + requestedFolderId + "/breadcrumbs")
     .then(function (res) {
       return res.json();
     })
     .then(function (crumbs) {
+      if (String(currentFolderId || "") !== String(requestedFolderId || "")) return;
+      if (crumbs.length) currentFolderName = crumbs[crumbs.length - 1].name;
       crumbs.forEach(function (c, idx) {
         var isLast = idx === crumbs.length - 1;
         var folderBtn = document.createElement("button");
@@ -253,9 +284,13 @@ function loadBreadcrumbs() {
     });
 }
 
-function navigateToFolder(id, name) {
-  currentFolderId = id;
-  currentFolderName = name || (id ? "Folder" : "/root");
+function navigateToFolder(id, name, options) {
+  options = options || {};
+  var targetId = id === null || id === undefined ? null : Number(id);
+  var changed = String(targetId || "") !== String(currentFolderId || "");
+  if (changed && options.updateHistory !== false) updateVaultFolderUrl(targetId, false);
+  currentFolderId = targetId;
+  currentFolderName = name || (targetId ? "Folder" : "/root");
   loadVault();
 }
 
