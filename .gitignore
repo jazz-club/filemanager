@@ -5,7 +5,9 @@
 .env
 
 ### Node ###
-package-lock.json
+## package-lock.json
+## op sec
+
 # Logs
 logs
 *.log
