@@ -10,6 +10,7 @@ const { initStorage } = require("./storage");
 const logger = require("./logger");
 const { csrfProtection } = require("./csrf");
 const { decryptText } = require("./crypto");
+const { shareUnlockRateLimiter } = require("./shareUnlockRateLimiter");
 
 const authRoutes = require("./routes/auth");
 const fileRoutes = require("./routes/files");
@@ -25,13 +26,35 @@ app.set("trust proxy", 1);
 
 app.use(
   helmet({
-    contentSecurityPolicy: false,
+    contentSecurityPolicy: {
+      reportOnly: true,
+      directives: {
+        defaultSrc: ["'self'"],
+        scriptSrc: ["'self'"],
+        styleSrc: ["'self'"],
+        imgSrc: ["'self'", "data:", "blob:"],
+        fontSrc: ["'self'", "data:"],
+        connectSrc: ["'self'"],
+        mediaSrc: ["'self'", "blob:"],
+        frameSrc: ["'self'", "blob:"],
+        objectSrc: ["'none'"],
+        baseUri: ["'self'"],
+        frameAncestors: ["'none'"],
+        formAction: ["'self'"],
+        reportUri: ["/api/security/csp-report"],
+      },
+    },
     crossOriginEmbedderPolicy: false,
   })
 );
 
-app.use(express.json({ limit: "25mb" }));
-app.use(express.urlencoded({ extended: false, limit: "25mb" }));
+app.use(
+  express.json({
+    limit: "1mb",
+    type: ["application/json", "application/csp-report", "application/reports+json"],
+  })
+);
+app.use(express.urlencoded({ extended: false, limit: "1mb" }));
 
 if (!process.env.SESSION_SECRET) {
   console.error("SESSION_SECRET where is");
@@ -70,6 +93,30 @@ app.use((req, res, next) => {
     );
   });
   next();
+});
+
+app.post("/api/security/csp-report", (req, res) => {
+  const body = req.body || {};
+  const report = body["csp-report"] || (Array.isArray(body) ? body[0]?.body || body[0] : body);
+  if (report && typeof report === "object") {
+    const getOrigin = (value) => {
+      try {
+        return new URL(String(value)).origin;
+      } catch (err) {
+        return String(value || "").slice(0, 32);
+      }
+    };
+    logger.info("[CSRP] ", {
+      documentOrigin: getOrigin(report["document-uri"] || report.documentURL),
+      directive: String(report["violated-directive"] || report.effectiveDirective || "").slice(
+        0,
+        128
+      ),
+      blockedOrigin: getOrigin(report["blocked-uri"] || report.blockedURL),
+      sourceOrigin: getOrigin(report["source-file"] || report.sourceFile),
+    });
+  }
+  res.status(204).end();
 });
 
 app.use(csrfProtection);
@@ -194,11 +241,20 @@ app.use((err, req, res, next) => {
 async function start() {
   logger.info("Init PostgreSQL schema");
   await initDB();
+  await shareUnlockRateLimiter.pruneExpired();
+  const rateLimitCleanup = setInterval(() => {
+    shareUnlockRateLimiter
+      .pruneExpired()
+      .catch((err) => logger.error("Share unlock rate reset failed", err));
+  }, 60 * 1000);
+  rateLimitCleanup.unref();
   logger.info("Init MinIO object storage");
   await initStorage();
-  app.listen(PORT, "0.0.0.0", () => {
+  const server = app.listen(PORT, "0.0.0.0", () => {
     logger.info("backend listening on port " + PORT);
   });
+  server.requestTimeout = 30 * 60 * 1000;
+  server.headersTimeout = 60 * 1000;
 }
 
 start().catch((err) => {

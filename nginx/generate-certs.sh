@@ -1,5 +1,5 @@
 #!/bin/sh
-CERT_DIR="$(dirname "$0")/certs"
+CERT_DIR="${1:-$(dirname "$0")/certs}"
 mkdir -p "$CERT_DIR"
 openssl req -x509 -nodes -days 365 \
   -newkey rsa:2048 \

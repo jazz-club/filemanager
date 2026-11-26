@@ -1,6 +1,6 @@
 var uploadQueue = [];
 var activeUploadsCount = 0;
-var MAX_CONCURRENT_UPLOADS = 3;
+var MAX_CONCURRENT_UPLOADS = 15;
 var uploadUniqueId = 0;
 var trayAuditDismissedAt = 0;
 try {

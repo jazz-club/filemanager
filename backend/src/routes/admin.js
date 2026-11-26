@@ -39,7 +39,7 @@ function requireAdmin(req, res, next) {
 router.post("/login", async (req, res) => {
   const { username, password } = req.body;
   const adminUser = process.env.ADMIN_USERNAME || "admin";
-  const adminPass = process.env.ADMIN_PASSWORD || "adminsecretpassword";
+  const adminPass = process.env.ADMIN_PASSWORD;
 
   if (!username || !password) {
     return res.status(400).json({ error: "Username and password required" });

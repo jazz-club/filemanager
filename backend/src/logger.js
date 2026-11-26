@@ -37,32 +37,6 @@ function protectAuditRecord(entry) {
   };
 }
 
-function protectExistingAuditFile() {
-  try {
-    const content = fs.readFileSync(AUDIT_LOG_FILE, "utf8");
-    const protectedLines = content
-      .split(/\r?\n/)
-      .filter(Boolean)
-      .map((line) => {
-        try {
-          const entry = JSON.parse(line);
-          if (entry.action && String(entry.action).startsWith("enc:v1:")) return line;
-          return JSON.stringify(protectAuditRecord(entry));
-        } catch (_) {
-          return "";
-        }
-      })
-      .filter(Boolean);
-    fs.writeFileSync(
-      AUDIT_LOG_FILE,
-      protectedLines.length ? protectedLines.join("\n") + "\n" : "",
-      "utf8"
-    );
-  } catch (_) {}
-}
-
-protectExistingAuditFile();
-
 function writeAuditEntry(entry) {
   const line = JSON.stringify(protectAuditRecord(entry)) + "\n";
   try {

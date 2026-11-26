@@ -4,20 +4,24 @@
   "private": true,
   "description": "a horrible way to store your files",
   "main": "src/index.js",
+  "engines": {
+    "node": ">=22"
+  },
   "scripts": {
     "start": "node src/index.js",
-    "dev": "node --watch src/index.js"
+    "dev": "node --watch src/index.js",
+    "test": "node --test"
   },
   "dependencies": {
     "archiver": "^8.0.0",
-    "bcrypt": "^5.1.1",
+    "argon2": "^0.45.2",
     "connect-pg-simple": "^10.0.0",
     "dotenv": "^16.4.5",
     "express": "^4.21.0",
     "express-session": "^1.18.0",
     "helmet": "^8.0.0",
     "minio": "^8.0.1",
-    "multer": "^1.4.5-lts.1",
+    "multer": "^2.2.0",
     "pg": "^8.13.0"
   }
 }

@@ -223,7 +223,13 @@ logoutBtn.onclick = function () {
 };
 
 exportAllBtn.onclick = function () {
-  window.location.href = "/api/files/export/all";
+  var downloadLink = document.createElement("a");
+  downloadLink.href = "/api/files/export/all";
+  downloadLink.target = "_blank";
+  downloadLink.rel = "noopener";
+  document.body.appendChild(downloadLink);
+  downloadLink.click();
+  downloadLink.remove();
 };
 
 refreshBtn.onclick = function () {

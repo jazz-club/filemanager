@@ -5,11 +5,8 @@ async function findById(id) {
   return result.rows[0] || null;
 }
 
-async function findByUsernameOrHash(cleanUser, uHash) {
-  let result = await pool.query("SELECT * FROM users WHERE username_hash = $1", [uHash]);
-  if (result.rows.length === 0) {
-    result = await pool.query("SELECT * FROM users WHERE username = $1", [cleanUser]);
-  }
+async function findByUsernameHash(uHash) {
+  const result = await pool.query("SELECT * FROM users WHERE username_hash = $1", [uHash]);
   return result.rows[0] || null;
 }
 
@@ -63,7 +60,7 @@ async function getUserCount() {
 
 module.exports = {
   findById,
-  findByUsernameOrHash,
+  findByUsernameHash,
   checkUsernameExists,
   createUser,
   updatePassword,

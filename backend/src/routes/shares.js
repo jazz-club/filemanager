@@ -1,16 +1,23 @@
 const { Router } = require("express");
 const { ZipArchive } = require("archiver");
 const crypto = require("crypto");
-const bcrypt = require("bcrypt");
+const { pipeline: pipelinePromise } = require("stream/promises");
 const { pool } = require("../db");
-const { decrypt } = require("../crypto");
-const { getObject, copyObject } = require("../storage");
+const { createDecryptStream } = require("../crypto");
+const { getObjectStream, copyObject } = require("../storage");
+const {
+  getDecryptedRangeStream,
+  parseByteRange,
+  appendDecryptedObject,
+  readDecryptedPrefix,
+} = require("../fileStreams");
+const { isPasswordLengthAllowed, verifyPassword } = require("../passwords");
+const { createShareUnlockKey, shareUnlockRateLimiter } = require("../shareUnlockRateLimiter");
 const { extractAudioCover } = require("../audioCover");
 const logger = require("../logger");
 const { encryptText, decryptText, encryptJson, decryptJson, blindIndex } = require("../crypto");
 
 const router = Router();
-const shareUnlockAttempts = new Map();
 
 function shareUnlockCookieName(token) {
   return "share_unlock_" + crypto.createHash("sha256").update(token).digest("hex").slice(0, 16);
@@ -101,11 +108,6 @@ async function resolveShare(shareToken, sessionUserId, req) {
 
 router.post("/:token/unlock", async (req, res) => {
   const token = req.params.token;
-  const key = (req.ip || "unknown") + ":" + token;
-  const current = shareUnlockAttempts.get(key);
-  if (current && current.until > Date.now() && current.count >= 8) {
-    return res.status(429).json({ error: "Too many incorrect password attempts. Try again later." });
-  }
   try {
     const result = await pool.query(
       "SELECT password_hash, expires_at FROM file_shares WHERE share_token = $1",
@@ -118,14 +120,28 @@ router.post("/:token/unlock", async (req, res) => {
       return res.status(410).json({ error: "Share link has expired" });
     }
     const supplied = typeof req.body.password === "string" ? req.body.password : "";
-    const valid = supplied.length <= 72 && (await bcrypt.compare(supplied, share.password_hash));
-    if (!valid) {
-      const prior = current && current.until > Date.now() ? current : { count: 0, until: Date.now() + 15 * 60 * 1000 };
-      prior.count += 1;
-      shareUnlockAttempts.set(key, prior);
-      return res.status(prior.count >= 8 ? 429 : 401).json({ error: "Incorrect share password" });
+    if (!isPasswordLengthAllowed(supplied)) {
+      return res.status(400).json({ error: "Password too long" });
     }
-    shareUnlockAttempts.delete(key);
+    const key = createShareUnlockKey(token, req.ip || req.socket.remoteAddress || "unknown");
+    const status = await shareUnlockRateLimiter.check(key);
+    if (status.limited) {
+      res.set("Retry-After", String(status.retryAfterSeconds));
+      return res.status(429).json({ error: "Too many incorrect password attempts. Try again later." });
+    }
+
+    const valid = await verifyPassword(supplied, share.password_hash);
+    if (!valid) {
+      const recorded = await shareUnlockRateLimiter.recordFailure(key);
+      if (recorded.capacityExceeded) {
+        res.set("Retry-After", "60");
+        return res.status(503).json({ error: "Password verification is temporarily unavailable" });
+      }
+      if (recorded.limited) res.set("Retry-After", String(recorded.retryAfterSeconds));
+      return res.status(recorded.limited ? 429 : 401).json({ error: "Incorrect share password" });
+    }
+
+    await shareUnlockRateLimiter.clear(key);
     const maxAge = share.expires_at
       ? Math.max(1, Math.min(7 * 24 * 60 * 60, Math.floor((new Date(share.expires_at) - Date.now()) / 1000)))
       : 7 * 24 * 60 * 60;
@@ -139,7 +155,7 @@ router.post("/:token/unlock", async (req, res) => {
     res.json({ success: true });
   } catch (err) {
     logger.error("Share unlock error", err);
-    res.status(500).json({ error: "Could not unlock share" });
+    res.status(503).json({ error: "Password verification is temporarily unavailable" });
   }
 });
 
@@ -372,64 +388,43 @@ router.delete("/:token/files/:fileId", async (req, res) => {
 });
 
 async function streamDecryptedFile(file, req, res) {
-  const encryptedBlob = await getObject(file.storage_key);
-  const plaintext = decrypt(encryptedBlob);
-
-  const totalSize = plaintext.length;
+  const totalSize = Number(file.size_bytes) || 0;
   const etag = `"${file.id || file.file_id}-${totalSize}-shared"`;
+  const rangeHeader = req.headers.range;
+  const range = rangeHeader ? parseByteRange(rangeHeader, totalSize) : null;
+
+  if (rangeHeader && !range) {
+    return res.status(416).set("Content-Range", `bytes */${totalSize}`).end();
+  }
+  if (!rangeHeader && req.headers["if-none-match"] === etag) return res.status(304).end();
 
   res.set({
     ETag: etag,
     "Cache-Control": "private, max-age=86400, stale-while-revalidate=3600",
     "Accept-Ranges": "bytes",
+    "Content-Type": file.mime_type || "application/octet-stream",
+    "Content-Security-Policy": "default-src 'none'; sandbox",
+    "X-Content-Type-Options": "nosniff",
   });
 
-  const range = req.headers.range;
   if (range) {
-    const match = range.match(/bytes=(\d*)-(\d*)/);
-    if (match) {
-      let start;
-      let end;
-
-      if (match[1] === "" && match[2] !== "") {
-        const suffix = parseInt(match[2], 10);
-        start = Math.max(0, totalSize - suffix);
-        end = totalSize - 1;
-      } else {
-        start = parseInt(match[1], 10);
-        end = match[2] ? parseInt(match[2], 10) : totalSize - 1;
-      }
-
-      if (isNaN(start) || isNaN(end) || start >= totalSize || end >= totalSize || start > end) {
-        res.status(416).set("Content-Range", `bytes */${totalSize}`).end();
-        return;
-      }
-
-      const chunk = plaintext.subarray(start, end + 1);
-      res.status(206);
-      res.set({
-        "Content-Range": `bytes ${start}-${end}/${totalSize}`,
-        "Content-Length": chunk.length,
-        "Content-Type": file.mime_type || "application/octet-stream",
-        "Content-Security-Policy": "default-src 'none'; sandbox",
-        "X-Content-Type-Options": "nosniff",
-      });
-      res.send(chunk);
-      return;
-    }
-  } else {
-    if (req.headers["if-none-match"] === etag) {
-      return res.status(304).end();
-    }
-    res.set({
-      "Content-Type": file.mime_type || "application/octet-stream",
-      "Content-Length": totalSize,
-      "Content-Disposition": `inline; filename="${file.original_name.replace(/["\r\n]/g, "_")}"`,
-      "Content-Security-Policy": "default-src 'none'; sandbox",
-      "X-Content-Type-Options": "nosniff",
+    const length = range.end - range.start + 1;
+    res.status(206).set({
+      "Content-Range": `bytes ${range.start}-${range.end}/${totalSize}`,
+      "Content-Length": length,
     });
-    res.send(plaintext);
+    await pipelinePromise(
+      await getDecryptedRangeStream(file.storage_key, totalSize, range.start, range.end),
+      res
+    );
+    return;
   }
+
+  res.set({
+    "Content-Length": totalSize,
+    "Content-Disposition": `inline; filename="${file.original_name.replace(/["\r\n]/g, "_")}"`,
+  });
+  await pipelinePromise(createDecryptStream(await getObjectStream(file.storage_key)), res);
 }
 
 router.get("/:token/preview", async (req, res) => {
@@ -451,7 +446,8 @@ router.get("/:token/preview", async (req, res) => {
     await streamDecryptedFile(share, req, res);
   } catch (err) {
     logger.error("Public share preview error", err);
-    res.status(500).json({ error: "Failed to load preview" });
+    if (res.headersSent || res.destroyed) res.destroy(err);
+    else res.status(500).json({ error: "Failed to load preview" });
   }
 });
 
@@ -482,7 +478,8 @@ router.get("/:token/files/:fileId/preview", async (req, res) => {
     await streamDecryptedFile(revealFile(itemQ.rows[0]), req, res);
   } catch (err) {
     logger.error("Public batch file preview error", err);
-    res.status(500).json({ error: "Failed to load preview" });
+    if (res.headersSent || res.destroyed) res.destroy(err);
+    else res.status(500).json({ error: "Failed to load preview" });
   }
 });
 
@@ -509,8 +506,7 @@ router.get("/:token/files/:fileId/cover", async (req, res) => {
     if (itemQ.rows.length === 0) return res.status(404).send("File not found");
     const file = revealFile(itemQ.rows[0]);
 
-    const blob = await getObject(file.storage_key);
-    const plaintext = decrypt(blob);
+    const plaintext = await readDecryptedPrefix(file.storage_key, 16 * 1024 * 1024);
     const cover = extractAudioCover(plaintext);
 
     if (!cover) return res.status(404).send("No cover art");
@@ -557,9 +553,17 @@ router.get("/:token/files/:fileId/download", async (req, res) => {
       return res.status(410).json({ error: "This share link has reached its download limit" });
     }
 
-    const blob = await getObject(file.storage_key);
-    const plaintext = decrypt(blob);
-
+    const totalSize = Number(file.size_bytes) || 0;
+    const safeName = (file.display_name || file.original_name).replace(/["\r\n]/g, "_");
+    const encodedName = encodeURIComponent(file.display_name || file.original_name);
+    res.set("Content-Type", file.mime_type || "application/octet-stream");
+    res.set("X-Content-Type-Options", "nosniff");
+    res.set("Content-Length", totalSize);
+    res.set(
+      "Content-Disposition",
+      'attachment; filename="' + safeName + "\"; filename*=UTF-8''" + encodedName
+    );
+    await pipelinePromise(createDecryptStream(await getObjectStream(file.storage_key)), res);
     logger.audit({
       event: "FILE_SHARE_DOWNLOAD",
       req,
@@ -573,19 +577,10 @@ router.get("/:token/files/:fileId/download", async (req, res) => {
         sizeBytes: file.size_bytes,
       },
     });
-
-    const safeName = (file.display_name || file.original_name).replace(/["\r\n]/g, "_");
-    const encodedName = encodeURIComponent(file.display_name || file.original_name);
-    res.set("Content-Type", file.mime_type || "application/octet-stream");
-    res.set("X-Content-Type-Options", "nosniff");
-    res.set(
-      "Content-Disposition",
-      'attachment; filename="' + safeName + "\"; filename*=UTF-8''" + encodedName
-    );
-    res.send(plaintext);
   } catch (err) {
     logger.error("Batch file download error", err);
-    res.status(500).json({ error: "Download failed" });
+    if (res.headersSent || res.destroyed) res.destroy(err);
+    else res.status(500).json({ error: "Download failed" });
   }
 });
 
@@ -620,8 +615,7 @@ router.get("/:token/cover", async (req, res) => {
       return res.status(404).send("Not an audio file");
     }
 
-    const blob = await getObject(share.storage_key);
-    const plaintext = decrypt(blob);
+    const plaintext = await readDecryptedPrefix(share.storage_key, 16 * 1024 * 1024);
     const cover = extractAudioCover(plaintext);
 
     if (!cover) {
@@ -677,13 +671,7 @@ router.get("/:token/download", async (req, res) => {
       archive.pipe(res);
 
       for (const item of itemsQ.rows.map(revealFile)) {
-        try {
-          const blob = await getObject(item.storage_key);
-          const plaintext = decrypt(blob);
-          archive.append(plaintext, { name: item.display_name || item.original_name });
-        } catch (e) {
-          logger.error("Batch share archive append failed", e);
-        }
+        await appendDecryptedObject(archive, item.storage_key, item.display_name || item.original_name);
       }
 
       logger.audit({
@@ -707,9 +695,18 @@ router.get("/:token/download", async (req, res) => {
       return res.status(410).json({ error: "This share link has reached its download limit" });
     }
 
-    const blob = await getObject(share.storage_key);
-    const plaintext = decrypt(blob);
+    const totalSize = Number(share.size_bytes) || 0;
+    res.set("Content-Type", share.mime_type || "application/octet-stream");
+    res.set("X-Content-Type-Options", "nosniff");
+    res.set("Content-Length", totalSize);
+    const safeName = share.original_name.replace(/["\r\n]/g, "_");
+    const encodedName = encodeURIComponent(share.original_name);
+    res.set(
+      "Content-Disposition",
+      'attachment; filename="' + safeName + "\"; filename*=UTF-8''" + encodedName
+    );
 
+    await pipelinePromise(createDecryptStream(await getObjectStream(share.storage_key)), res);
     logger.audit({
       event: "FILE_SHARE_DOWNLOAD",
       req,
@@ -723,20 +720,10 @@ router.get("/:token/download", async (req, res) => {
         sizeBytes: share.size_bytes,
       },
     });
-
-    res.set("Content-Type", share.mime_type || "application/octet-stream");
-    res.set("X-Content-Type-Options", "nosniff");
-    const safeName = share.original_name.replace(/["\r\n]/g, "_");
-    const encodedName = encodeURIComponent(share.original_name);
-    res.set(
-      "Content-Disposition",
-      'attachment; filename="' + safeName + "\"; filename*=UTF-8''" + encodedName
-    );
-
-    res.send(plaintext);
   } catch (err) {
     logger.error("Public share download error", err);
-    res.status(500).json({ error: "Download failed" });
+    if (res.headersSent || res.destroyed) res.destroy(err);
+    else res.status(500).json({ error: "Download failed" });
   }
 });
 

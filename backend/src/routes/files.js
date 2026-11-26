@@ -1,8 +1,9 @@
 const { Router } = require("express");
 const multer = require("multer");
 const crypto = require("crypto");
-const bcrypt = require("bcrypt");
 const path = require("path");
+const { Transform, Readable, PassThrough, pipeline } = require("stream");
+const { pipeline: pipelinePromise } = require("stream/promises");
 const { ZipArchive } = require("archiver");
 const { pool, fileRepository, folderRepository } = require("../db");
 const {
@@ -12,13 +13,220 @@ const {
   decryptText,
   encryptJson,
   decryptJson,
+  createEncryptStream,
+  createDecryptStream,
+  createChunkedRangeDecryptStream,
+  CHUNK_SIZE,
+  CHUNK_HEADER_LEN,
 } = require("../crypto");
-const { putObject, getObject, deleteObject } = require("../storage");
+const {
+  getObject,
+  getObjectStream,
+  getObjectRange,
+  createObjectUploadStream,
+  deleteObject,
+} = require("../storage");
 const { extractAudioCover } = require("../audioCover");
 const { extractMetadata } = require("../metadataExtractor");
+const { hashPassword, isPasswordLengthAllowed } = require("../passwords");
 const logger = require("../logger");
 
 const router = Router();
+
+function positiveIntegerSetting(name, fallback, maximum = Number.MAX_SAFE_INTEGER) {
+  const value = Number(process.env[name]);
+  return Number.isSafeInteger(value) && value > 0 ? Math.min(value, maximum) : fallback;
+}
+
+const MAX_UPLOAD_BYTES = positiveIntegerSetting("MAX_UPLOAD_BYTES", 5 * 1024 * 1024 * 1024);
+const MAX_ACTIVE_UPLOADS = positiveIntegerSetting("MAX_ACTIVE_UPLOADS", 2, 4);
+const MAX_METADATA_PREFIX_BYTES = 16 * 1024 * 1024;
+const MAX_CACHED_PREVIEW_BYTES = 16 * 1024 * 1024;
+let activeUploads = 0;
+
+class EncryptedObjectStorage {
+  _handleFile(req, file, callback) {
+    const storageKey = req.session.userId + "/" + crypto.randomUUID();
+    const hash = crypto.createHash("sha256");
+    const uploadStream = createObjectUploadStream(storageKey);
+    let size = 0;
+    let metadataPrefix = Buffer.alloc(0);
+    const measureStream = new Transform({
+      transform(chunk, encoding, done) {
+        size += chunk.length;
+        hash.update(chunk);
+        const remaining = MAX_METADATA_PREFIX_BYTES - metadataPrefix.length;
+        if (remaining > 0) {
+          const prefixChunk = chunk.subarray(0, remaining);
+          metadataPrefix = metadataPrefix.length
+            ? Buffer.concat([metadataPrefix, prefixChunk])
+            : prefixChunk;
+        }
+        done(null, chunk);
+      },
+    });
+
+    file.storageKey = storageKey;
+    file.stream.once("limit", () => uploadStream.destroy(new multer.MulterError("LIMIT_FILE_SIZE", "file")));
+    pipeline(file.stream, measureStream, createEncryptStream(), uploadStream, (err) => {
+      if (err) {
+        deleteObject(storageKey).catch(() => {});
+        return callback(err);
+      }
+      callback(null, {
+        storageKey,
+        size,
+        sha256: hash.digest("hex"),
+        metadataPrefix,
+      });
+    });
+  }
+
+  _removeFile(req, file, callback) {
+    if (!file.storageKey) return callback(null);
+    deleteObject(file.storageKey).then(() => callback(null), callback);
+  }
+}
+
+const upload = multer({
+  storage: new EncryptedObjectStorage(),
+  limits: {
+    fileSize: MAX_UPLOAD_BYTES,
+    files: 1,
+    fields: 10,
+    fieldSize: 256 * 1024,
+    parts: 11,
+  },
+});
+
+function reserveUploadSlot(req, res, next) {
+  if (activeUploads >= MAX_ACTIVE_UPLOADS) {
+    req.resume();
+    res.set("Retry-After", "30");
+    return res.status(503).json({ error: "Retry." });
+  }
+  activeUploads += 1;
+  let released = false;
+  const release = () => {
+    if (released) return;
+    released = true;
+    activeUploads = Math.max(0, activeUploads - 1);
+  };
+  res.once("finish", release);
+  res.once("close", release);
+  req.once("aborted", release);
+  next();
+}
+
+async function readStreamPrefix(readable, maxBytes) {
+  const chunks = [];
+  let total = 0;
+  for await (const chunk of readable) {
+    const count = Math.min(chunk.length, maxBytes - total);
+    if (count > 0) {
+      chunks.push(chunk.subarray(0, count));
+      total += count;
+    }
+    if (total >= maxBytes) {
+      readable.destroy();
+      break;
+    }
+  }
+  return Buffer.concat(chunks, total);
+}
+
+async function readSmallObjectRange(storageKey, offset, length) {
+  const readable = await getObjectRange(storageKey, offset, length);
+  const chunks = [];
+  let total = 0;
+  for await (const chunk of readable) {
+    total += chunk.length;
+    if (total > length) throw new Error("Range exceeded requested length");
+    chunks.push(chunk);
+  }
+  if (total !== length) throw new Error("Range was truncated");
+  return Buffer.concat(chunks, total);
+}
+
+function slicePlaintextStream(readable, offset, length, drainToEnd = false) {
+  return Readable.from(
+    (async function* () {
+      let skipped = 0;
+      let remaining = length;
+      for await (const chunk of readable) {
+        if (skipped + chunk.length <= offset) {
+          skipped += chunk.length;
+          continue;
+        }
+        const start = Math.max(0, offset - skipped);
+        const count = Math.min(chunk.length - start, remaining);
+        if (count > 0) yield chunk.subarray(start, start + count);
+        skipped += chunk.length;
+        remaining -= count;
+        if (remaining === 0 && !drainToEnd) {
+          readable.destroy();
+          break;
+        }
+      }
+      if (remaining !== 0) throw new Error("Range shorter than requested length");
+    })()
+  );
+}
+
+async function getDecryptedRangeStream(storageKey, totalSize, start, end) {
+  const magic = await readSmallObjectRange(storageKey, 0, 4);
+  if (!magic.equals(Buffer.from("PBX2"))) {
+    throw new Error("Unsupported encrypted object format");
+  }
+
+  const header = await readSmallObjectRange(storageKey, 0, CHUNK_HEADER_LEN);
+  if (header.readUInt32BE(4) !== CHUNK_SIZE) throw new Error("Unsupported chunk size");
+  const firstChunk = Math.floor(start / CHUNK_SIZE);
+  const lastChunk = Math.floor(end / CHUNK_SIZE);
+  const totalChunks = Math.max(1, Math.ceil(totalSize / CHUNK_SIZE));
+  const lastChunkLength = lastChunk === totalChunks - 1
+    ? totalSize - lastChunk * CHUNK_SIZE
+    : CHUNK_SIZE;
+  const selectedPlainBytes = lastChunkLength + (lastChunk - firstChunk) * CHUNK_SIZE;
+  const encryptedOffset = CHUNK_HEADER_LEN + firstChunk * (CHUNK_SIZE + 4 + 16);
+  const encryptedLength = selectedPlainBytes + (lastChunk - firstChunk + 1) * (4 + 16);
+  const encryptedRange = await getObjectRange(storageKey, encryptedOffset, encryptedLength);
+  const decrypted = createChunkedRangeDecryptStream(
+    encryptedRange,
+    header,
+    firstChunk,
+    lastChunk - firstChunk + 1,
+    totalSize
+  );
+  return slicePlaintextStream(decrypted, start - firstChunk * CHUNK_SIZE, end - start + 1);
+}
+
+async function appendDecryptedObject(archive, storageKey, archivePath) {
+  const output = new PassThrough({ highWaterMark: 64 * 1024 });
+  archive.append(output, { name: archivePath });
+  const encrypted = await getObjectStream(storageKey);
+  await pipelinePromise(createDecryptStream(encrypted), output);
+}
+
+function parseByteRange(header, totalSize) {
+  const match = /^bytes=(\d*)-(\d*)$/.exec(header || "");
+  if (!match || totalSize <= 0 || (!match[1] && !match[2])) return null;
+  let start;
+  let end;
+  if (!match[1]) {
+    const suffixLength = Number(match[2]);
+    if (!Number.isSafeInteger(suffixLength) || suffixLength <= 0) return null;
+    start = Math.max(0, totalSize - suffixLength);
+    end = totalSize - 1;
+  } else {
+    start = Number(match[1]);
+    end = match[2] ? Number(match[2]) : totalSize - 1;
+    if (!Number.isSafeInteger(start) || !Number.isSafeInteger(end)) return null;
+    end = Math.min(end, totalSize - 1);
+  }
+  if (start < 0 || start >= totalSize || start > end) return null;
+  return { start, end };
+}
 
 function revealFileRow(row) {
   if (!row) return row;
@@ -34,11 +242,6 @@ function revealFolderRow(row) {
   if (row && row.name !== undefined) row.name = decryptText(row.name);
   return row;
 }
-const upload = multer({
-  storage: multer.memoryStorage(),
-  limits: { fileSize: 5120 * 1024 * 1024 },
-});
-
 // TODO decrpyt preview buffers
 function normalizeShareLimit(value) {
   if (value === undefined || value === null || value === "") return null;
@@ -49,10 +252,10 @@ function normalizeShareLimit(value) {
 
 async function prepareShareSecurity(body) {
   const password = body.password === undefined || body.password === null ? "" : String(body.password);
-  if (password && Buffer.byteLength(password, "utf8") > 72) {
-    return { error: "Share passwords limited to 72 characters fuck you bcrypt" };
+  if (password && !isPasswordLengthAllowed(password)) {
+    return { error: "Password too long" };
   }
-  const passwordHash = password ? await bcrypt.hash(password, 12) : null;
+  const passwordHash = password ? await hashPassword(password) : null;
   return { passwordHash };
 }
 
@@ -375,19 +578,14 @@ router.get("/folder/:id/download", requireAuth, async (req, res) => {
     });
 
     for (const item of fileItems) {
-      try {
-        const encryptedBlob = await getObject(item.storageKey);
-        const decrypted = decrypt(encryptedBlob);
-        archive.append(decrypted, { name: item.archivePath });
-      } catch (fileErr) {
-        logger.error("Archive decrypt failed", fileErr);
-      }
+      await appendDecryptedObject(archive, item.storageKey, item.archivePath);
     }
 
     await archive.finalize();
   } catch (err) {
     console.error("Folder zip error:", err);
-    if (!res.headersSent) res.status(500).json({ error: "Failed to download folder as archive" });
+    if (res.headersSent || res.destroyed) res.destroy(err);
+    else res.status(500).json({ error: "Failed to download folder as archive" });
   }
 });
 
@@ -435,31 +633,29 @@ router.post("/batch/download-zip", requireAuth, async (req, res) => {
     archive.pipe(res);
 
     logger.audit({
-      event: "FOLDER_DOWNLOAD_ZIP",
+      event: "BATCH_DOWNLOAD_ZIP",
       req,
       userId: req.session.userId,
-      itemType: "folder",
-      itemId: folderId,
-      itemName: folderName,
-      details: { fileCount: fileItems.length, estimatedSize },
+      itemType: "selection",
+      itemName: "Selected items",
+      details: {
+        fileCount: archiveItems.length,
+        folderCount: folderIds.length,
+        estimatedSize,
+      },
       outcome: "SUCCESS",
       statusCode: 200,
     });
 
     for (const item of archiveItems) {
-      try {
-        const encrypted = await getObject(item.storageKey);
-        const decrypted = decrypt(encrypted);
-        archive.append(decrypted, { name: item.archivePath });
-      } catch (e) {
-        logger.error("Archive file append failed", e);
-      }
+      await appendDecryptedObject(archive, item.storageKey, item.archivePath);
     }
 
     await archive.finalize();
   } catch (err) {
     console.error("Batch zip error:", err);
-    if (!res.headersSent) res.status(500).json({ error: "Failed to create archive" });
+    if (res.headersSent || res.destroyed) res.destroy(err);
+    else res.status(500).json({ error: "Failed to create archive" });
   }
 });
 
@@ -585,11 +781,32 @@ router.post("/batch/share", requireAuth, async (req, res) => {
 
 router.get("/export/all", requireAuth, async (req, res) => {
   try {
+    const rootFiles = await pool.query(
+      "SELECT original_name, storage_key, size_bytes FROM files WHERE owner_id = $1 AND folder_id IS NULL",
+      [req.session.userId]
+    );
+    const archiveItems = rootFiles.rows.map(revealFileRow).map((file) => ({
+      storageKey: file.storage_key,
+      archivePath: file.original_name,
+      sizeBytes: Number(file.size_bytes) || 0,
+    }));
+
+    const topFolders = await pool.query(
+      "SELECT id FROM folders WHERE owner_id = $1 AND parent_id IS NULL",
+      [req.session.userId]
+    );
+    for (const tf of topFolders.rows) {
+      const items = await collectFolderFiles(req.session.userId, tf.id, "");
+      archiveItems.push(...items);
+    }
+
+    const estimatedSize = archiveItems.reduce((sum, item) => sum + item.sizeBytes, 0);
     const archive = new ZipArchive({ store: true });
     archive.on("error", (e) => console.error("Vault zip internal error:", e));
     const zipName = `pinkbox_vault_backup_${Date.now()}.zip`;
 
     res.set("Content-Type", "application/zip");
+    res.set("X-Download-Size", String(estimatedSize));
     res.set(
       "Content-Disposition",
       `attachment; filename="${zipName}"; filename*=UTF-8''${encodeURIComponent(zipName)}`
@@ -598,58 +815,32 @@ router.get("/export/all", requireAuth, async (req, res) => {
     archive.pipe(res);
 
     logger.audit({
-      event: "FOLDER_DOWNLOAD_ZIP",
+      event: "VAULT_EXPORT_ZIP",
       req,
       userId: req.session.userId,
-      itemType: "folder",
-      itemId: folderId,
-      itemName: folderName,
-      details: { fileCount: fileItems.length, estimatedSize },
+      itemType: "vault",
+      itemName: "Vault export",
+      details: { fileCount: archiveItems.length, estimatedSize },
       outcome: "SUCCESS",
       statusCode: 200,
     });
 
-    const rootFiles = await pool.query(
-      "SELECT original_name, storage_key FROM files WHERE owner_id = $1 AND folder_id IS NULL",
-      [req.session.userId]
-    );
-    for (const rf of rootFiles.rows.map(revealFileRow)) {
-      try {
-        const encrypted = await getObject(rf.storage_key);
-        const decrypted = decrypt(encrypted);
-        archive.append(decrypted, { name: rf.original_name });
-      } catch (e) {
-        logger.error("Root file export failed", e);
-      }
-    }
-
-    const topFolders = await pool.query(
-      "SELECT id FROM folders WHERE owner_id = $1 AND parent_id IS NULL",
-      [req.session.userId]
-    );
-    for (const tf of topFolders.rows) {
-      const items = await collectFolderFiles(req.session.userId, tf.id, "");
-      for (const item of items) {
-        try {
-          const encrypted = await getObject(item.storageKey);
-          const decrypted = decrypt(encrypted);
-          archive.append(decrypted, { name: item.archivePath });
-        } catch (e) {
-          logger.error("Folder file export failed", e);
-        }
-      }
+    for (const item of archiveItems) {
+      await appendDecryptedObject(archive, item.storageKey, item.archivePath);
     }
 
     await archive.finalize();
   } catch (err) {
     console.error("Full drive export error:", err);
-    if (!res.headersSent) res.status(500).json({ error: "Failed to export vault" });
+    if (res.headersSent || res.destroyed) res.destroy(err);
+    else res.status(500).json({ error: "Failed to export vault" });
   }
 });
 
 router.post(
   "/",
   requireAuth,
+  reserveUploadSlot,
   (req, res, next) => {
     upload.single("file")(req, res, (err) => {
       if (err) {
@@ -662,6 +853,7 @@ router.post(
     });
   },
   async (req, res) => {
+    let uploadedStorageKey = req.file && req.file.storageKey;
     try {
       if (!req.file) return res.status(400).json({ error: "No file provided" });
 
@@ -676,17 +868,17 @@ router.post(
       if (folderId) {
         const folder = await folderRepository.getFolderById(folderId, req.session.userId);
         if (!folder) {
+          await deleteObject(uploadedStorageKey);
+          uploadedStorageKey = null;
           return res.status(400).json({ error: "Target folder not found" });
         }
       }
 
-      const storageKey = req.session.userId + "/" + crypto.randomUUID();
-      const sha256 = crypto.createHash("sha256").update(req.file.buffer).digest("hex");
-      const { ciphertext } = encrypt(req.file.buffer);
-      await putObject(storageKey, ciphertext);
+      const storageKey = uploadedStorageKey;
+      const sha256 = req.file.sha256;
 
       const metadata = extractMetadata(
-        req.file.buffer,
+        req.file.metadataPrefix,
         safeOriginalName,
         req.file.mimetype || "application/octet-stream",
         req.file.size
@@ -710,6 +902,7 @@ router.post(
           downloadToken,
         ]
       );
+      uploadedStorageKey = null;
 
       logger.audit({
         event: "FILE_UPLOAD_SUCCESS",
@@ -728,6 +921,13 @@ router.post(
 
       res.status(201).json(revealFileRow(result.rows[0]));
     } catch (err) {
+      if (uploadedStorageKey) {
+        try {
+          await deleteObject(uploadedStorageKey);
+        } catch (deleteErr) {
+          logger.error("Failed to remove orphaned upload object", deleteErr);
+        }
+      }
       logger.error("Upload error", err);
       res.status(500).json({ error: "Upload failed" });
     }
@@ -823,9 +1023,11 @@ router.get("/:id/metadata", requireAuth, async (req, res) => {
     let meta = file.metadata;
     if (!meta || Object.keys(meta).length === 0) {
       try {
-        const blob = await getObject(file.storage_key);
-        const buf = decrypt(blob);
-        meta = extractMetadata(buf, file.original_name, file.mime_type, file.size_bytes);
+        const prefix = await readStreamPrefix(
+          createDecryptStream(await getObjectStream(file.storage_key)),
+          MAX_METADATA_PREFIX_BYTES
+        );
+        meta = extractMetadata(prefix, file.original_name, file.mime_type, file.size_bytes);
         await fileRepository.updateFileMetadata(file.id, req.session.userId, meta);
         file.metadata = meta;
       } catch (e) {
@@ -851,72 +1053,62 @@ router.get("/:id/preview", requireAuth, async (req, res) => {
     if (result.rows.length === 0) return res.status(404).json({ error: "File not found" });
 
     const file = revealFileRow(result.rows[0]);
-    let plaintext = getCachedPreview(file.id);
-
-    if (!plaintext) {
-      const blob = await getObject(file.storage_key);
-      plaintext = decrypt(blob);
-      setCachedPreview(file.id, plaintext);
-    }
-
-    const totalSize = plaintext.length;
+    const totalSize = Number(file.size_bytes) || 0;
     const etag = `"${file.id}-${totalSize}"`;
+    const rangeHeader = req.headers.range;
+    const range = rangeHeader ? parseByteRange(rangeHeader, totalSize) : null;
+
+    if (rangeHeader && !range) {
+      return res.status(416).set("Content-Range", `bytes */${totalSize}`).end();
+    }
+    if (!rangeHeader && req.headers["if-none-match"] === etag) return res.status(304).end();
 
     res.set({
       ETag: etag,
       "Cache-Control": "private, max-age=86400, stale-while-revalidate=3600",
       "Accept-Ranges": "bytes",
+      "Content-Type": file.mime_type || "application/octet-stream",
+      "Content-Security-Policy": "default-src 'none'; sandbox",
+      "X-Content-Type-Options": "nosniff",
     });
 
-    const range = req.headers.range;
     if (range) {
-      const match = range.match(/bytes=(\d*)-(\d*)/);
-      if (match) {
-        let start;
-        let end;
-
-        if (match[1] === "" && match[2] !== "") {
-          const suffix = parseInt(match[2], 10);
-          start = Math.max(0, totalSize - suffix);
-          end = totalSize - 1;
-        } else {
-          start = parseInt(match[1], 10);
-          end = match[2] ? parseInt(match[2], 10) : totalSize - 1;
-        }
-
-        if (isNaN(start) || isNaN(end) || start >= totalSize || end >= totalSize || start > end) {
-          res.status(416).set("Content-Range", `bytes */${totalSize}`).end();
-          return;
-        }
-
-        const chunk = plaintext.subarray(start, end + 1);
-        res.status(206);
-        res.set({
-          "Content-Range": `bytes ${start}-${end}/${totalSize}`,
-          "Content-Length": chunk.length,
-          "Content-Type": file.mime_type || "application/octet-stream",
-          "Content-Security-Policy": "default-src 'none'; sandbox",
-          "X-Content-Type-Options": "nosniff",
-        });
-        res.send(chunk);
-        return;
-      }
-    } else {
-      if (req.headers["if-none-match"] === etag) {
-        return res.status(304).end();
-      }
-      res.set({
-        "Content-Type": file.mime_type || "application/octet-stream",
-        "Content-Length": totalSize,
-        "Content-Disposition": `inline; filename="${file.original_name.replace(/["\r\n]/g, "_")}"`,
-        "Content-Security-Policy": "default-src 'none'; sandbox",
-        "X-Content-Type-Options": "nosniff",
+      const length = range.end - range.start + 1;
+      res.status(206).set({
+        "Content-Range": `bytes ${range.start}-${range.end}/${totalSize}`,
+        "Content-Length": length,
       });
-      res.send(plaintext);
+      if (totalSize <= MAX_CACHED_PREVIEW_BYTES) {
+        let plaintext = getCachedPreview(file.id);
+        if (!plaintext) {
+          plaintext = decrypt(await getObject(file.storage_key));
+          setCachedPreview(file.id, plaintext);
+        }
+        return res.send(plaintext.subarray(range.start, range.end + 1));
+      }
+      return await pipelinePromise(
+        await getDecryptedRangeStream(file.storage_key, totalSize, range.start, range.end),
+        res
+      );
     }
+
+    res.set({
+      "Content-Length": totalSize,
+      "Content-Disposition": `inline; filename="${file.original_name.replace(/["\r\n]/g, "_")}"`,
+    });
+    if (totalSize <= MAX_CACHED_PREVIEW_BYTES) {
+      let plaintext = getCachedPreview(file.id);
+      if (!plaintext) {
+        plaintext = decrypt(await getObject(file.storage_key));
+        setCachedPreview(file.id, plaintext);
+      }
+      return res.send(plaintext);
+    }
+    await pipelinePromise(createDecryptStream(await getObjectStream(file.storage_key)), res);
   } catch (err) {
     logger.error("Preview/Stream error", err);
-    res.status(500).json({ error: "Streaming preview failed" });
+    if (res.headersSent || res.destroyed) res.destroy(err);
+    else res.status(500).json({ error: "Streaming preview failed" });
   }
 });
 
@@ -937,7 +1129,7 @@ router.get("/:id/cover", requireAuth, async (req, res) => {
     }
 
     const result = await pool.query(
-      "SELECT id, owner_id, original_name, mime_type, storage_key FROM files WHERE id = $1 AND owner_id = $2",
+      "SELECT id, owner_id, original_name, mime_type, size_bytes, storage_key FROM files WHERE id = $1 AND owner_id = $2",
       [fileId, req.session.userId]
     );
     if (result.rows.length === 0) return res.status(404).json({ error: "File not found" });
@@ -959,11 +1151,14 @@ router.get("/:id/cover", requireAuth, async (req, res) => {
       return res.status(404).send("Not an audio file");
     }
 
-    let plaintext = getCachedPreview(file.id);
+    const size = Number(file.size_bytes) || 0;
+    let plaintext = size <= MAX_CACHED_PREVIEW_BYTES ? getCachedPreview(file.id) : null;
     if (!plaintext) {
-      const blob = await getObject(file.storage_key);
-      plaintext = decrypt(blob);
-      setCachedPreview(file.id, plaintext);
+      plaintext = await readStreamPrefix(
+        createDecryptStream(await getObjectStream(file.storage_key)),
+        MAX_METADATA_PREFIX_BYTES
+      );
+      if (size <= MAX_CACHED_PREVIEW_BYTES) setCachedPreview(file.id, plaintext);
     }
 
     const cover = extractAudioCover(plaintext);
@@ -987,9 +1182,17 @@ router.get("/:id/cover", requireAuth, async (req, res) => {
 
 async function serveDecryptedFile(file, req, res) {
   revealFileRow(file);
-  const blob = await getObject(file.storage_key);
-  const plaintext = decrypt(blob);
-
+  const totalSize = Number(file.size_bytes) || 0;
+  res.set("Content-Type", file.mime_type || "application/octet-stream");
+  res.set("X-Content-Type-Options", "nosniff");
+  res.set("Content-Length", totalSize);
+  const safeName = file.original_name.replace(/["\r\n]/g, "_");
+  const encodedName = encodeURIComponent(file.original_name);
+  res.set(
+    "Content-Disposition",
+    'attachment; filename="' + safeName + "\"; filename*=UTF-8''" + encodedName
+  );
+  await pipelinePromise(createDecryptStream(await getObjectStream(file.storage_key)), res);
   logger.audit({
     event: "FILE_DOWNLOAD",
     req,
@@ -998,16 +1201,6 @@ async function serveDecryptedFile(file, req, res) {
     statusCode: 200,
     details: { fileId: file.id, fileName: file.original_name, sizeBytes: file.size_bytes },
   });
-
-  res.set("Content-Type", file.mime_type || "application/octet-stream");
-  res.set("X-Content-Type-Options", "nosniff");
-  const safeName = file.original_name.replace(/["\r\n]/g, "_");
-  const encodedName = encodeURIComponent(file.original_name);
-  res.set(
-    "Content-Disposition",
-    'attachment; filename="' + safeName + "\"; filename*=UTF-8''" + encodedName
-  );
-  res.send(plaintext);
 }
 
 router.get("/download/:token", requireAuth, async (req, res) => {
@@ -1032,7 +1225,8 @@ router.get("/download/:token", requireAuth, async (req, res) => {
     await serveDecryptedFile(revealFileRow(result.rows[0]), req, res);
   } catch (err) {
     logger.error("Download error", err);
-    res.status(500).json({ error: "Download failed" });
+    if (res.headersSent || res.destroyed) res.destroy(err);
+    else res.status(500).json({ error: "Download failed" });
   }
 });
 
@@ -1059,7 +1253,8 @@ router.get("/:id/download", requireAuth, async (req, res) => {
     await serveDecryptedFile(revealFileRow(result.rows[0]), req, res);
   } catch (err) {
     logger.error("Download error", err);
-    res.status(500).json({ error: "Download failed" });
+    if (res.headersSent || res.destroyed) res.destroy(err);
+    else res.status(500).json({ error: "Download failed" });
   }
 });
 
@@ -1255,7 +1450,8 @@ router.get("/:id", requireAuth, async (req, res) => {
     await serveDecryptedFile(result.rows[0], req, res);
   } catch (err) {
     logger.error("Download error", err);
-    res.status(500).json({ error: "Download failed" });
+    if (res.headersSent || res.destroyed) res.destroy(err);
+    else res.status(500).json({ error: "Download failed" });
   }
 });
 

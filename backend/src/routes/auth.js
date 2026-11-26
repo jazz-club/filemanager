@@ -1,7 +1,11 @@
 const { Router } = require("express");
 const crypto = require("crypto");
-const bcrypt = require("bcrypt");
 const { userRepository, settingsRepository, fileRepository } = require("../db");
+const {
+  hashPassword,
+  isPasswordLengthAllowed,
+  verifyPassword,
+} = require("../passwords");
 const { encrypt, decrypt } = require("../crypto");
 const { deleteObject } = require("../storage");
 const { getClientIp, checkCooldown, recordFailedAttempt, clearCooldown } = require("../ratelimit");
@@ -85,11 +89,14 @@ router.post("/register", async (req, res) => {
     }
 
     const { username, password } = req.body;
-    if (!username || !password) {
+    if (!username || typeof password !== "string" || !password) {
       return res.status(400).json({ error: "Username and password required" });
     }
     if (password.length < 8) {
       return res.status(400).json({ error: "Password must be at least 8 characters" });
+    }
+    if (!isPasswordLengthAllowed(password)) {
+      return res.status(400).json({ error: "Password too long" });
     }
 
     const cleanUser = username.trim();
@@ -110,7 +117,7 @@ router.post("/register", async (req, res) => {
       return res.status(409).json({ error: "Username already taken" });
     }
 
-    const passHash = await bcrypt.hash(password, 12);
+    const passHash = await hashPassword(password);
     const createdUser = await userRepository.createUser({ maskedName, passHash, uHash, encUser });
 
     const newUserId = createdUser.id;
@@ -182,7 +189,7 @@ router.post("/login", async (req, res) => {
       });
     }
 
-    const user = await userRepository.findByUsernameOrHash(cleanUser, uHash);
+    const user = await userRepository.findByUsernameHash(uHash);
 
     if (!user) {
       const lockStatus = await recordFailedAttempt(attemptKey);
@@ -204,7 +211,7 @@ router.post("/login", async (req, res) => {
       return res.status(401).json({ error: "Invalid credentials" });
     }
 
-    const valid = await bcrypt.compare(password, user.password);
+    const valid = await verifyPassword(password, user.password);
     if (!valid) {
       const lockStatus = await recordFailedAttempt(attemptKey);
       logger.audit({
@@ -312,6 +319,9 @@ router.post("/change-password", requireAuth, async (req, res) => {
     if (newPassword.length < 8) {
       return res.status(400).json({ error: "New password must be at least 8 characters" });
     }
+    if (!isPasswordLengthAllowed(newPassword)) {
+      return res.status(400).json({ error: "Pick a shorter password" });
+    }
 
     const attemptKey = `pwchange:${req.session.userId}`;
     const cooldown = await checkCooldown(attemptKey);
@@ -335,7 +345,7 @@ router.post("/change-password", requireAuth, async (req, res) => {
     const user = await userRepository.findById(req.session.userId);
     if (!user) return res.status(404).json({ error: "User not found" });
 
-    const valid = await bcrypt.compare(currentPassword, user.password);
+    const valid = await verifyPassword(currentPassword, user.password);
     if (!valid) {
       const lockStatus = await recordFailedAttempt(attemptKey);
       logger.audit({
@@ -358,7 +368,7 @@ router.post("/change-password", requireAuth, async (req, res) => {
 
     await clearCooldown(attemptKey);
 
-    const hash = await bcrypt.hash(newPassword, 12);
+    const hash = await hashPassword(newPassword);
     await userRepository.updatePassword(req.session.userId, hash);
 
     logger.audit({
@@ -396,7 +406,7 @@ router.delete("/account", requireAuth, async (req, res) => {
     const user = await userRepository.findById(req.session.userId);
     if (!user) return res.status(404).json({ error: "User not found" });
 
-    const valid = await bcrypt.compare(password, user.password);
+    const valid = await verifyPassword(password, user.password);
     if (!valid) {
       const lockStatus = await recordFailedAttempt(attemptKey);
       logger.audit({
