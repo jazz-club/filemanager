@@ -192,7 +192,11 @@ function renderGrid(filteredFolders, filteredFiles, query, accordion, existingNo
         var chk = existingCol.querySelector(".form-check-input");
         if (chk) chk.checked = isFileSelected(file.id);
         var nameEl = existingCol.querySelector(".grid-item-name");
-        if (nameEl) nameEl.innerHTML = highlightMatch(file.original_name, query);
+        var displayName = getFileDisplayName(file);
+        if (nameEl) {
+          nameEl.title = displayName;
+          nameEl.innerHTML = highlightMatch(displayName, query);
+        }
 
         var topDetailsBtn = existingCol.querySelector(".grid-details-btn");
         if (topDetailsBtn) {
@@ -386,8 +390,9 @@ function renderGrid(filteredFolders, filteredFiles, query, accordion, existingNo
 
     var nameDiv = document.createElement("div");
     nameDiv.className = "fw-bold small text-truncate w-100 text-center mb-1 grid-item-name";
-    nameDiv.title = file.original_name;
-    nameDiv.innerHTML = highlightMatch(file.original_name, query);
+    var displayName = getFileDisplayName(file);
+    nameDiv.title = displayName;
+    nameDiv.innerHTML = highlightMatch(displayName, query);
     nameDiv.style.cursor = "pointer";
 
     nameDiv.onclick = function () {
@@ -610,7 +615,11 @@ function renderListView(filteredFolders, filteredFiles, query, accordion, existi
         var chk = existingItem.querySelector(".form-check-input");
         if (chk) chk.checked = isFileSelected(file.id);
         var nameSpan = existingItem.querySelector(".fw-bold.text-truncate");
-        if (nameSpan) nameSpan.innerHTML = highlightMatch(file.original_name, query);
+        var displayName = getFileDisplayName(file);
+        if (nameSpan) {
+          nameSpan.title = displayName;
+          nameSpan.innerHTML = highlightMatch(displayName, query);
+        }
         var headerPreviewBtn = existingItem.querySelector(".list-header-preview-btn");
         if (headerPreviewBtn) {
           headerPreviewBtn.onclick = function (e) {
@@ -706,6 +715,7 @@ function renderListView(filteredFolders, filteredFiles, query, accordion, existi
     };
 
     var fileGlyph = getFileUnicodeIcon(file.mime_type, file.original_name);
+    var displayName = getFileDisplayName(file);
 
     btn.innerHTML =
       '<div class="d-flex align-items-center gap-2 w-100 text-truncate min-w-0">' +
@@ -715,9 +725,9 @@ function renderListView(filteredFolders, filteredFiles, query, accordion, existi
       fileGlyph +
       "</span>" +
       '<span class="fw-bold text-truncate" title="' +
-      escapeHtml(file.original_name) +
+      escapeHtml(displayName) +
       '">' +
-      highlightMatch(file.original_name, query) +
+      highlightMatch(displayName, query) +
       "</span>" +
       "</div>";
 

@@ -140,15 +140,43 @@ var clearActivityBtn = document.getElementById("clear-activity-btn");
 
 var currentViewMode = localStorage.getItem("vault_view_mode") || "list";
 var showThumbnails = localStorage.getItem("vault_show_thumbs") !== "false";
+var showExtensions = localStorage.getItem("vault_show_extensions") !== "false";
+
+function getFileDisplayName(file) {
+  var originalName = String((file && file.original_name) || "");
+  var metadataTitle = String((file && file.metadata && file.metadata.title) || "").trim();
+  var dotIndex = originalName.lastIndexOf(".");
+  var separatorIndex = Math.max(originalName.lastIndexOf("/"), originalName.lastIndexOf("\\"));
+  var extension =
+    dotIndex > separatorIndex + 1 && dotIndex < originalName.length - 1
+      ? originalName.slice(dotIndex)
+      : "";
+
+  if (metadataTitle) {
+    if (
+      !showExtensions ||
+      !extension ||
+      metadataTitle.toLowerCase().endsWith(extension.toLowerCase())
+    ) {
+      return metadataTitle;
+    }
+    return metadataTitle + extension;
+  }
+
+  if (!showExtensions && extension) return originalName.slice(0, -extension.length);
+  return originalName;
+}
 
 var filterDropdownBtn = document.getElementById("filter-dropdown-btn");
 var sortDropdownBtn = document.getElementById("sort-dropdown-btn");
 var viewModeListBtn = document.getElementById("view-mode-list-btn");
 var viewModeGridBtn = document.getElementById("view-mode-grid-btn");
 var viewToggleThumbsBtn = document.getElementById("view-toggle-thumbs-btn");
+var viewToggleExtensionsBtn = document.getElementById("view-toggle-extensions-btn");
 var viewCheckList = document.getElementById("view-check-list");
 var viewCheckGrid = document.getElementById("view-check-grid");
 var viewCheckThumbs = document.getElementById("view-check-thumbs");
+var viewCheckExtensions = document.getElementById("view-check-extensions");
 
 var audioDock = document.getElementById("audio-dock-player");
 var audioDockEl = document.getElementById("audio-dock-el");

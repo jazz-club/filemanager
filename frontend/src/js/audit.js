@@ -475,24 +475,31 @@
     document.getElementById("audit-export-json-btn").onclick = exportAsJson;
     document.getElementById("audit-export-csv-btn").onclick = exportAsCsv;
 
+    var auditClearModalEl = document.getElementById("audit-clear-confirm-modal");
+    var auditClearModal = new bootstrap.Modal(auditClearModalEl);
+    var auditClearConfirmBtn = document.getElementById("audit-clear-confirm-btn");
+
     document.getElementById("audit-clear-btn").onclick = function () {
-      if (
-        confirm(
-          "Are you sure you want to clear your audit log history? This action cannot be undone."
-        )
-      ) {
-        api("/audit-logs/clear", { method: "POST" })
-          .then(function (r) {
-            return r.json();
-          })
-          .then(function () {
-            currentOffset = 0;
-            loadAuditLogs();
-          })
-          .catch(function (err) {
-            alert("Failed to clear audit history: " + (err.message || err));
-          });
-      }
+      auditClearModal.show();
+    };
+
+    auditClearConfirmBtn.onclick = function () {
+      auditClearModal.hide();
+      auditClearConfirmBtn.disabled = true;
+      api("/audit-logs/clear", { method: "POST" })
+        .then(function (r) {
+          return r.json();
+        })
+        .then(function () {
+          currentOffset = 0;
+          loadAuditLogs();
+        })
+        .catch(function (err) {
+          alert("Failed to clear audit history: " + (err.message || err));
+        })
+        .finally(function () {
+          auditClearConfirmBtn.disabled = false;
+        });
     };
 
     loadAuditLogs();

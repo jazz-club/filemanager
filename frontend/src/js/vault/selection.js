@@ -96,6 +96,17 @@ if (viewToggleThumbsBtn) {
   };
 }
 
+if (viewToggleExtensionsBtn) {
+  viewToggleExtensionsBtn.onclick = function () {
+    showExtensions = !showExtensions;
+    localStorage.setItem("vault_show_extensions", showExtensions ? "true" : "false");
+    if (viewCheckExtensions) {
+      viewCheckExtensions.classList.toggle("d-none", !showExtensions);
+    }
+    renderList();
+  };
+}
+
 if (viewCheckList && viewCheckGrid) {
   if (currentViewMode === "grid") {
     viewCheckList.classList.add("d-none");
@@ -108,6 +119,10 @@ if (viewCheckList && viewCheckGrid) {
 
 if (viewCheckThumbs) {
   viewCheckThumbs.classList.toggle("d-none", !showThumbnails);
+}
+
+if (viewCheckExtensions) {
+  viewCheckExtensions.classList.toggle("d-none", !showExtensions);
 }
 
 function repositionSelectionDock() {

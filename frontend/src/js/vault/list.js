@@ -83,6 +83,7 @@ function renderList() {
   var sortVal = currentSortVal || (sortSelect ? sortSelect.value : "date-desc");
   var renderConfigurationChanged =
     renderList._lastShowThumbnails !== showThumbnails ||
+    renderList._lastShowExtensions !== showExtensions ||
     renderList._lastViewMode !== currentViewMode;
 
   var filteredFolders = [];
@@ -102,7 +103,12 @@ function renderList() {
   }
 
   var filteredFiles = allLoadedFiles.filter(function (file) {
-    if (query && !file.original_name.toLowerCase().includes(query)) return false;
+    if (
+      query &&
+      !file.original_name.toLowerCase().includes(query) &&
+      !getFileDisplayName(file).toLowerCase().includes(query)
+    )
+      return false;
     var mime = (file.mime_type || "").toLowerCase();
     if (filterType === "image" && !mime.startsWith("image/")) return false;
     if (filterType === "video" && !mime.startsWith("video/")) return false;
@@ -131,8 +137,8 @@ function renderList() {
   filteredFiles.sort(function (a, b) {
     if (sortVal === "date-desc") return new Date(b.uploaded_at) - new Date(a.uploaded_at);
     if (sortVal === "date-asc") return new Date(a.uploaded_at) - new Date(b.uploaded_at);
-    if (sortVal === "name-asc") return a.original_name.localeCompare(b.original_name);
-    if (sortVal === "name-desc") return b.original_name.localeCompare(a.original_name);
+    if (sortVal === "name-asc") return getFileDisplayName(a).localeCompare(getFileDisplayName(b));
+    if (sortVal === "name-desc") return getFileDisplayName(b).localeCompare(getFileDisplayName(a));
     if (sortVal === "size-desc") return (b.size_bytes || 0) - (a.size_bytes || 0);
     if (sortVal === "size-asc") return (a.size_bytes || 0) - (b.size_bytes || 0);
     return 0;
@@ -250,6 +256,7 @@ function renderList() {
   }
 
   renderList._lastShowThumbnails = showThumbnails;
+  renderList._lastShowExtensions = showExtensions;
   renderList._lastViewMode = currentViewMode;
 
   var newElements = accordion.querySelectorAll("[data-item-key]:not(.item-ghost-disappearing)");

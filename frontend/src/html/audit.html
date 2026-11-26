@@ -427,6 +427,35 @@
       </div>
     </div>
 
+    <div class="modal fade" id="audit-clear-confirm-modal" tabindex="-1" aria-hidden="true">
+      <div class="modal-dialog modal-dialog-centered modal-sm">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h6 class="modal-title fw-bold mb-0">Clear Audit History</h6>
+            <button
+              type="button"
+              class="btn-close-custom ms-auto"
+              data-bs-dismiss="modal"
+              aria-label="Close"
+              title="Close"
+            >
+              ✕
+            </button>
+          </div>
+          <div class="modal-body">
+            <p class="mb-0 small">
+              Are you sure you want to clear your audit log history? This action cannot be undone.
+            </p>
+          </div>
+          <div class="modal-footer py-2">
+            <button type="button" class="btn btn-sm btn-danger" id="audit-clear-confirm-btn">
+              Clear History
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <script src="/src/js/bootstrap.bundle.min.js"></script>
     <script src="/src/js/common.js"></script>
     <script src="/src/js/utils/dom.js"></script>
